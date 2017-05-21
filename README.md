@@ -8,6 +8,7 @@ build horizontal scaling of websocket server
 - 心跳
 - 多服务器水平扩展 (用Consul)
 - 自定义用户认证接口
+- 多模块 模块之间rpc 可插拔 可重复配置多个模块
 - 用户不在线时消息处理(比如用户断线重连恢复现场)
 - 同步帧?
 - 消息持久化? 实现消息重放
