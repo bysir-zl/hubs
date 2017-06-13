@@ -2,12 +2,12 @@ package server
 
 import (
 	"github.com/bysir-zl/hubs/core/net/listener"
-	"github.com/bysir-zl/hubs/core/net/conn"
 	"context"
+	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 )
 
 type ProductNet func() listener.Interface
-type ConnHandle func(conn.Interface)
+type ConnHandle func(conn_wrap.Interface)
 
 func Run(ctx context.Context, addr string, p ProductNet, h ConnHandle) (err error) {
 	l := p()

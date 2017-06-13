@@ -1,82 +1,83 @@
-package conn
+package conn_wrap
 
 import (
 	"net"
 	"context"
 	"log"
+	"io"
+	"github.com/bysir-zl/hubs/core/util"
+	"errors"
 )
 
 type Tcp struct {
 	conn *net.TCPConn
-	rc   chan []byte
-	wc   chan []byte
-	buf  []byte
-	data map[string]interface{}
-}
-
-func (t *Tcp) SetValue(key string, value interface{}) {
-	t.data[key] = value
-}
-
-func (p *Tcp) Value(key string) (value interface{}, ok bool) {
-	value, ok = p.data[key]
-	return
+	Base
 }
 
 func (p *Tcp) Close() (err error) {
+	p.topicL.RLock()
+	for t := range p.subscribeTopics {
+		DefManager.UnSubscribe(t, p)
+	}
+	p.topicL.RUnlock()
+
 	return p.conn.Close()
 }
 
-func (p *Tcp) Reader() (rc chan []byte) {
-	rc = p.rc
-	return
-}
-
-func (p *Tcp) Writer() (wc chan []byte) {
-	wc = p.wc
-	return
-}
-
-func (p *Tcp) Dispatch(topic string, bs []byte, self bool) {
-	if self {
-		DefManager.SendToTopic(topic, bs, nil)
-	} else {
-		DefManager.SendToTopic(topic, bs, p)
-	}
-	return
-}
-
 func (p *Tcp) UnSubscribe(topic string) (err error) {
+	p.topicL.Lock()
+	delete(p.subscribeTopics, topic)
+	p.topicL.Unlock()
+
 	DefManager.UnSubscribe(topic, p)
 	return
 }
 
 func (p *Tcp) Subscribe(topic string) (err error) {
+	p.topicL.Lock()
+	p.subscribeTopics[topic] = struct{}{}
+	p.topicL.Unlock()
+
 	DefManager.Subscribe(topic, p)
 	return
 }
 
 func (p *Tcp) Read() (bs []byte, err error) {
-	l, err := p.conn.Read(p.buf)
+	// 先读长度
+	lBs := make([]byte, 4)
+	i, err := io.ReadFull(p.conn, lBs)
 	if err != nil {
 		return
 	}
-	bs = p.buf[:l]
+
+	if i != 4 {
+		err = errors.New("err header")
+		return
+	}
+	l := util.Byte4Int32([4]byte{lBs[0], lBs[1], lBs[2], lBs[3]})
+	bs = make([]byte, l)
+	_, err = io.ReadFull(p.conn, bs)
+
 	return
 }
 
 func (p *Tcp) Write(bs []byte) (err error) {
-	_, err = p.conn.Write(bs)
+	bsW := make([]byte, len(bs)+4)
+	cmdB := util.Int322Byte(uint32(len(bs)))
+	bsW[0] = cmdB[0]
+	bsW[1] = cmdB[1]
+	bsW[2] = cmdB[2]
+	bsW[3] = cmdB[3]
+
+	copy(bsW[4:], bs)
+	_, err = p.conn.Write(bsW)
 	return
 }
 
-func NewTcpConn(ctx context.Context, conn *net.TCPConn) *Tcp {
+func FromTcpConn(ctx context.Context, conn *net.TCPConn) *Tcp {
 	p := &Tcp{
 		conn: conn,
-		rc:   make(chan []byte, BufSize),
-		wc:   make(chan []byte, BufSize),
-		buf:  make([]byte, 1024),
-		data: make(map[string]interface{}),
+		Base: NewBase(),
 	}
 	stop := make(chan struct{})
 	go func() {

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tank</title>
+    <script src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+</head>
+<body>
+
+</body>
+
+<script>
+    var ws = new WebSocket("ws://localhost:5656/ws");
+    ws.onmessage = function (e) {
+        console.log(e.data)
+        $("body").html(e.data)
+    }
+    var uid = parseInt(window.location.hash.substr(1))
+    console.log(uid)
+    setTimeout(function () {
+        var s = JSON.stringify({Cmd:3,Body:{id:uid}})
+        ws.send(s)
+
+        var s = JSON.stringify({Cmd:0,Body:{Ang:uid,Speed:5}})
+        ws.send(s)
+
+        setInterval(function () {
+            var s = JSON.stringify({Cmd:2})
+            ws.send(s)
+        },100)
+    }, 1000)
+
+
+</script>
+</html>

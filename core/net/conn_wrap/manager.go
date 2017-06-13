@@ -1,4 +1,4 @@
-package conn
+package conn_wrap
 
 import (
 	"sync"
@@ -53,7 +53,7 @@ func (p *Manager) SendToTopic(topic string, bs []byte, expect Interface) (count 
 			continue
 		}
 		count++
-		c.Writer() <- bs
+		c.Writer()<-bs
 	}
 
 	return

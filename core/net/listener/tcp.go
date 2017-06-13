@@ -1,18 +1,18 @@
 package listener
 
 import (
-	"github.com/bysir-zl/hubs/core/net/conn"
 	"net"
 	"strings"
 	"strconv"
 	"context"
+	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 )
 
 type Tcp struct {
 	listener *net.TCPListener
 }
 
-func (p *Tcp) Accept(ctx context.Context) (c conn.Interface, err error) {
+func (p *Tcp) Accept(ctx context.Context) (c conn_wrap.Interface, err error) {
 	err = ctx.Err()
 	if err != nil {
 		return
@@ -21,7 +21,7 @@ func (p *Tcp) Accept(ctx context.Context) (c conn.Interface, err error) {
 	if err != nil {
 		return
 	}
-	c = conn.NewTcpConn(ctx, tcpConn)
+	c = conn_wrap.FromTcpConn(ctx, tcpConn)
 	return
 }
 
