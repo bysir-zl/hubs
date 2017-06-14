@@ -4,32 +4,164 @@
     <meta charset="UTF-8">
     <title>Tank</title>
     <script src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+    <script src="https://unpkg.com/vue/dist/vue.js"></script>
 </head>
 <body>
-
+<div id="app">
+    <div v-for="item in items" :key="item.key">
+        <div v-if="item.class==='tank'">
+            <div class="tank" :style="{top:item.pos.y+'px',left:item.pos.x+'px'}">{{item.id}}</div>
+        </div>
+    </div>
+</div>
 </body>
 
 <script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            message: 'Hello Vue!',
+            items: [],
+        },
+        methods: {
+            up: function () {
+                this.self.Ang = 90
+                this.self.Speed = 1
+            }
+        }
+    })
+    var keyDown = {}
+
+    document.onkeydown = function (event) {
+        var e = event || window.event || arguments.callee.caller.arguments[0];
+        if (e ) { // up
+            keyDown[''+e.keyCode]=true
+        }
+
+        var s = JSON.stringify({Cmd: 0, Body: getAngSpeed()})
+        ws.send(s)
+
+        return false
+    };
+
+    document.onkeyup = function (event) {
+        var e = event || window.event || arguments.callee.caller.arguments[0];
+        if (e ) { // up
+            keyDown[''+e.keyCode]=false
+        }
+
+        var s = JSON.stringify({Cmd: 0, Body: getAngSpeed()})
+        ws.send(s)
+
+        return false
+    };
+
+    function getAngSpeed() {
+        var speed = 0
+        var ang = 0
+        if (keyDown["38"]&&keyDown["40"]){// up
+            speed = 0
+            ang = -90
+            return {Speed:speed,Ang:ang}
+        }
+
+        //
+        if (keyDown["38"]&&keyDown["39"]){// up
+            speed = 80
+            ang = -45
+            return {Speed:speed,Ang:ang}
+        }
+        if (keyDown["38"]&&keyDown["37"]){// up
+            speed = 80
+            ang = 180+45
+            return {Speed:speed,Ang:ang}
+        }
+
+        //
+        if (keyDown["40"]&&keyDown["39"]){// up
+            speed = 80
+            ang = 45
+            return {Speed:speed,Ang:ang}
+        }
+        if (keyDown["40"]&&keyDown["37"]){// up
+            speed = 80
+            ang = 180-45
+            return {Speed:speed,Ang:ang}
+        }
+
+        //
+        if (keyDown["39"]&&keyDown["37"]){// up
+            speed = 0
+            ang = 0
+            return {Speed:speed,Ang:ang}
+        }
+
+        if (keyDown["38"]){// up
+            speed = 80
+            ang = -90
+        }
+        if (keyDown["40"]){ // Down
+            speed = 80
+            ang = 90
+        }
+        if (keyDown["39"]){// Right
+            speed = 80
+            ang = 0
+        }
+        if (keyDown["37"]){ // Left
+            speed = 80
+            ang = 180
+        }
+        return {Speed:speed,Ang:ang}
+    }
+
     var ws = new WebSocket("ws://localhost:5656/ws");
     ws.onmessage = function (e) {
-        console.log(e.data)
-        $("body").html(e.data)
+        app.message = e.data
+        var data = JSON.parse(e.data)
+        if (data.Cmd === 0) {
+            var items = []
+            for (var k in data.Body) {
+                var cla = k.substr(0, 4)
+                var id = k.substr(4)
+                var pos = data.Body[k]
+                items.push({'class': cla, pos: pos, key: k, id: id})
+            }
+            app.items = items
+        }
     }
     var uid = parseInt(window.location.hash.substr(1))
     console.log(uid)
+
     setTimeout(function () {
-        var s = JSON.stringify({Cmd:3,Body:{id:uid}})
+        var s = JSON.stringify({Cmd: 3, Body: {id: uid}})
         ws.send(s)
 
-        var s = JSON.stringify({Cmd:0,Body:{Ang:uid,Speed:5}})
-        ws.send(s)
 
         setInterval(function () {
-            var s = JSON.stringify({Cmd:2})
+            app.self = getAngSpeed()
+
+            var s = JSON.stringify({Cmd: 2})
             ws.send(s)
-        },100)
+        }, 100)
     }, 1000)
 
 
 </script>
+
+<style>
+    html, body, #app {
+        height: 100%;
+        width: 100%;
+    }
+
+    .tank {
+        position: absolute;
+        top: 500px;
+        width: 30px;
+        height: 30px;
+        background-color: aquamarine;
+        transition: all 0.1s linear;
+    }
+</style>
 </html>

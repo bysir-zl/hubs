@@ -1,8 +1,8 @@
 package conn_wrap
 
 type Interface interface {
-	Reader() (rc chan []byte)
-	Writer() (wc chan []byte)
+	Reader() (rc chan []byte, closed bool)
+	Writer() (wc chan []byte, closed bool)
 	Dispatch(topic string, bs []byte, exp Interface)
 	UnSubscribe(topic string) (err error)
 	Subscribe(topic string) (err error)

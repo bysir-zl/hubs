@@ -17,7 +17,7 @@ func listen(addr string) (err error) {
 	}
 	handle := func(con conn_wrap.Interface) {
 		log.Print("conn")
-		rc := con.Reader()
+		rc, _ := con.Reader()
 		defer con.Close()
 
 		for {
@@ -38,6 +38,15 @@ func listen(addr string) (err error) {
 			}
 		}
 	end:
+		id := 0
+		idI, ok := con.Value("id")
+		if ok {
+			id = idI.(int)
+			room := manager.Room("room1")
+			tankKey := fmt.Sprintf("tank%d", id)
+			room.Del(tankKey)
+		}
+
 		log.Print("close")
 	}
 	ctx := context.Background()
@@ -56,7 +65,7 @@ func handleRequest(conn conn_wrap.Interface, request Request) {
 		id = idI.(int)
 	}
 
-	log.Print(id,request)
+	log.Print(id, request)
 
 	roomId := "room1"
 	switch request.Cmd {
@@ -74,9 +83,14 @@ func handleRequest(conn conn_wrap.Interface, request Request) {
 		}
 
 	case CQ_Move:
-		roomId, _ := conn.Value("roomId")
-		tank := manager.Room(roomId.(string)).Item(fmt.Sprintf("tank%d", id)).(*item.Tank)
-
+		roomId, ok := conn.Value("roomId")
+		if !ok{
+			return
+		}
+		tank, ok := manager.Room(roomId.(string)).Item(fmt.Sprintf("tank%d", id)).(*item.Tank)
+		if !ok {
+			return
+		}
 		body := request.Body.(map[string]interface{})
 		tank.Ang = body["Ang"].(float64)
 		tank.Speed = body["Speed"].(float64)
@@ -95,5 +109,8 @@ func handleRequest(conn conn_wrap.Interface, request Request) {
 
 func writeConn(conn conn_wrap.Interface, response Response) {
 	bs, _ := json.Marshal(response)
-	conn.Writer() <- bs
+	if wc, ok := conn.Writer(); ok {
+		wc <- bs
+	}
+
 }

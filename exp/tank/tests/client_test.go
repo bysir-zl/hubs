@@ -59,3 +59,9 @@ func TestClient(t *testing.T) {
 
 	//<-(chan int)(nil)
 }
+
+func TestN(t *testing.T) {
+	var x chan int = make(chan int,10)
+	x=nil
+	x<-1
+}

@@ -13,6 +13,8 @@ type Ws struct {
 }
 
 func (p *Ws) Close() (err error) {
+	p.close()
+
 	p.topicL.RLock()
 	for t := range p.subscribeTopics {
 		DefManager.UnSubscribe(t, p)
@@ -86,6 +88,7 @@ func FromWsConn(ctx context.Context, conn *websocket.Conn) *Ws {
 			}
 		}
 	exit:
+		p.close()
 		close(p.wc)
 	}()
 	go func() {
@@ -100,6 +103,7 @@ func FromWsConn(ctx context.Context, conn *websocket.Conn) *Ws {
 			p.rc <- bs
 		}
 	exit:
+		p.close()
 		close(p.rc)
 		close(stop)
 	}()

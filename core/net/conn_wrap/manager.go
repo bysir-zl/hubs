@@ -53,7 +53,9 @@ func (p *Manager) SendToTopic(topic string, bs []byte, expect Interface) (count 
 			continue
 		}
 		count++
-		c.Writer()<-bs
+		if wc, ok := c.Writer(); ok {
+			wc <- bs
+		}
 	}
 
 	return
