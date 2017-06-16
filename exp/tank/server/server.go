@@ -5,7 +5,7 @@ import (
 	"github.com/bysir-zl/hubs/exp/tank/room"
 )
 
-const UpdateTime = time.Second / 10 // 1s 同步10次
+const UpdateTime = time.Second / 30 // 1s 同步30次
 
 var manager = NewManager()
 

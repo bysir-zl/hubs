@@ -21,7 +21,7 @@
         el: '#app',
         data: {
             message: 'Hello Vue!',
-            items: [],
+            items: [{'key':1,'class':'tank',pos:{x:100,y:100},id:'99'}],
         },
         methods: {
             up: function () {
@@ -38,8 +38,10 @@
             keyDown[''+e.keyCode]=true
         }
 
-        var s = JSON.stringify({Cmd: 0, Body: getAngSpeed()})
-        ws.send(s)
+//        var s = JSON.stringify({Cmd: 0, Body: getAngSpeed()})
+//        ws.send(s)
+
+        updateItem()
 
         return false
     };
@@ -50,11 +52,22 @@
             keyDown[''+e.keyCode]=false
         }
 
-        var s = JSON.stringify({Cmd: 0, Body: getAngSpeed()})
-        ws.send(s)
+//        var s = JSON.stringify({Cmd: 0, Body: getAngSpeed()})
+//        ws.send(s)
+        updateItem()
 
         return false
     };
+
+    function updateItem(){
+        var as = getAngSpeed()
+
+        if (as.Ang==0){
+            app.items[0].pos.x+=5
+        }else{
+            app.items[0].pos.x-=5
+        }
+    }
 
     function getAngSpeed() {
         var speed = 0
@@ -67,24 +80,24 @@
 
         //
         if (keyDown["38"]&&keyDown["39"]){// up
-            speed = 80
+            speed = 500
             ang = -45
             return {Speed:speed,Ang:ang}
         }
         if (keyDown["38"]&&keyDown["37"]){// up
-            speed = 80
+            speed = 500
             ang = 180+45
             return {Speed:speed,Ang:ang}
         }
 
         //
         if (keyDown["40"]&&keyDown["39"]){// up
-            speed = 80
+            speed = 500
             ang = 45
             return {Speed:speed,Ang:ang}
         }
         if (keyDown["40"]&&keyDown["37"]){// up
-            speed = 80
+            speed = 500
             ang = 180-45
             return {Speed:speed,Ang:ang}
         }
@@ -97,19 +110,19 @@
         }
 
         if (keyDown["38"]){// up
-            speed = 80
+            speed = 500
             ang = -90
         }
         if (keyDown["40"]){ // Down
-            speed = 80
+            speed = 500
             ang = 90
         }
         if (keyDown["39"]){// Right
-            speed = 80
+            speed = 500
             ang = 0
         }
         if (keyDown["37"]){ // Left
-            speed = 80
+            speed = 500
             ang = 180
         }
         return {Speed:speed,Ang:ang}
@@ -117,18 +130,20 @@
 
     var ws = new WebSocket("ws://localhost:5656/ws");
     ws.onmessage = function (e) {
-        app.message = e.data
-        var data = JSON.parse(e.data)
-        if (data.Cmd === 0) {
-            var items = []
-            for (var k in data.Body) {
-                var cla = k.substr(0, 4)
-                var id = k.substr(4)
-                var pos = data.Body[k]
-                items.push({'class': cla, pos: pos, key: k, id: id})
-            }
-            app.items = items
-        }
+//        app.message = e.data
+//        var data = JSON.parse(e.data)
+//        if (data.Cmd === 0) {
+//            var items = []
+//            for (var k in data.Body) {
+//                var cla = k.substr(0, 4)
+//                var id = k.substr(4)
+//                var pos = data.Body[k]
+//                items.push({'class': cla, pos: pos, key: k, id: id})
+//            }
+//            app.items = items
+//        }
+
+
     }
     var uid = parseInt(window.location.hash.substr(1))
     console.log(uid)
@@ -143,7 +158,7 @@
 
             var s = JSON.stringify({Cmd: 2})
             ws.send(s)
-        }, 100)
+        }, 50)
     }, 1000)
 
 
@@ -161,7 +176,7 @@
         width: 30px;
         height: 30px;
         background-color: aquamarine;
-        transition: all 0.1s linear;
+        /*transition: all 0.1s linear;*/
     }
 </style>
 </html>
