@@ -12,9 +12,7 @@ import (
 )
 
 func TestServerRun(t *testing.T) {
-	tcpNet := func() listener.Interface {
-		return &listener.Tcp{}
-	}
+	tcpNet := &listener.Tcp{}
 	handle := func(con conn_wrap.Interface) {
 		log.Print("conn")
 

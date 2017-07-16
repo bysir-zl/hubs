@@ -6,18 +6,16 @@ import (
 	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 )
 
-type ProductNet func() listener.Interface
 type ConnHandle func(conn_wrap.Interface)
 
-func Run(ctx context.Context, addr string, p ProductNet, h ConnHandle) (err error) {
-	l := p()
-	err = l.Listen(addr)
+func Run(ctx context.Context, addr string, net listener.Interface, h ConnHandle) (err error) {
+	err = net.Listen(addr)
 	if err != nil {
 		return
 	}
 
 	for {
-		c, e := l.Accept(ctx)
+		c, e := net.Accept(ctx)
 		if e != nil {
 			err = e
 			return
