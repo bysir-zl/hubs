@@ -33,6 +33,7 @@ func (p *Ws) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		log.Print(err)
 		return
 	}
+
 	p.acceptChan <- conn
 }
 
@@ -41,7 +42,6 @@ func (p *Ws) Listen(addr string) (err error) {
 	go func() {
 		e := http.ListenAndServe(addr, nil)
 		if e != nil {
-			panic(e)
 			return
 		}
 	}()
