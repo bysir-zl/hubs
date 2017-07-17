@@ -5,6 +5,7 @@ import (
 	"io"
 	"context"
 	"log"
+	"errors"
 )
 
 type Ws struct {
@@ -12,7 +13,33 @@ type Ws struct {
 	Base
 }
 
+func (p *Ws) Read() (bs []byte, err error) {
+	if p.closed {
+		err = errors.New("closed")
+		return
+	}
+	bs, ok := <-p.rc
+	if !ok {
+		err = errors.New("closed")
+		return
+	}
+	return
+}
+
+func (p *Ws) Write(bs []byte) (err error) {
+	if p.closed {
+		err = errors.New("closed")
+		return
+	}
+	p.wc <- bs
+	return
+}
+
 func (p *Ws) Close() (err error) {
+	if p.closed {
+		err = errors.New("closed")
+		return
+	}
 	p.close()
 
 	p.topicL.RLock()
@@ -21,6 +48,8 @@ func (p *Ws) Close() (err error) {
 	}
 	p.topicL.RUnlock()
 
+	close(p.wc)
+	close(p.rc)
 	return p.conn.Close()
 }
 
@@ -42,7 +71,7 @@ func (p *Ws) Subscribe(topic string) (err error) {
 	return
 }
 
-func (p *Ws) Read() (bs []byte, err error) {
+func (p *Ws) ReadSync() (bs []byte, err error) {
 read:
 	t, bs, err := p.conn.ReadMessage()
 	switch t {
@@ -61,7 +90,7 @@ read:
 	return
 }
 
-func (p *Ws) Write(bs []byte) (err error) {
+func (p *Ws) WriteSync(bs []byte) (err error) {
 	err = p.conn.WriteMessage(websocket.TextMessage, bs)
 	return
 }
@@ -72,40 +101,43 @@ func FromWsConn(ctx context.Context, conn *websocket.Conn) *Ws {
 		Base: NewBase(),
 	}
 	stop := make(chan struct{})
+
+	// 开启写协程
 	go func() {
+		defer func() {
+			p.Close()
+		}()
 		for {
 			select {
-			case bs := <-p.wc:
-				e := p.Write(bs)
+			case <-stop:
+				return
+			case <-ctx.Done():
+				return
+			case bs ,ok:= <-p.wc:
+				if !ok {
+					return
+				}
+				e := p.WriteSync(bs)
 				if e != nil {
 					log.Print("conn.Wirte err: ", e)
 				}
-			case <-ctx.Done():
-				p.conn.Close()
-				goto exit
-			case <-stop:
-				goto exit
+
 			}
 		}
-	exit:
-		p.close()
-		close(p.wc)
 	}()
+
+	// 开启读协程
 	go func() {
 		for {
-			bs, err := p.Read()
-
+			bs, err := p.ReadSync()
 			if err != nil {
-				p.conn.Close()
-				goto exit
+				close(stop)
+				return
 			}
 
 			p.rc <- bs
 		}
-	exit:
-		p.close()
-		close(p.rc)
-		close(stop)
 	}()
+
 	return p
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 )
 
-func TestServerRun(t *testing.T) {
+func TestRun(t *testing.T) {
 	tcpNet := &listener.Tcp{}
 	handle := func(con conn_wrap.Interface) {
 		log.Print("conn")
@@ -19,39 +19,24 @@ func TestServerRun(t *testing.T) {
 		con.Subscribe("room1")
 		defer con.UnSubscribe("room1")
 
-		rc := con.Reader()
-
-		stop := make(chan struct{})
 		authed := false
 		go func() {
 			time.Sleep(5 * time.Second)
 			if !authed {
-				close(stop)
+				con.Close()
 			}
 		}()
 
 		for {
-			select {
-			case bs, ok := <-rc:
-				if !ok {
-					goto end
-				}
-				authed = true
-				log.Print(string(bs))
-				con.Writer() <- []byte("SB")
-				con.Writer() <- []byte("SB")
-				con.Writer() <- []byte("SB")
-				con.Writer() <- []byte("SB")
-				con.Writer() <- []byte("SB")
-				con.Writer() <- []byte("SB")
-				con.Writer() <- []byte("SB")
-			case <-stop:
-				log.Print("auth timeout")
-				con.Close()
-				goto end
+			bs, err := con.Read()
+			if err != nil {
+				break
 			}
+			authed = true
+			log.Print(string(bs))
+			con.Write([]byte("SB"))
 		}
-	end:
+
 		log.Print("close")
 	}
 	ctx := context.Background()
@@ -67,13 +52,17 @@ func TestClient(t *testing.T) {
 
 	con := conn_wrap.FromTcpConn(context.Background(), c)
 
-	con.Writer() <- []byte("hello")
+	con.Write([]byte("hello"))
 
-	for r := range con.Reader() {
-		log.Print(string(r))
+	for {
+		bs, err := con.Read()
+		if err != nil {
+			log.Print("err ", err)
+			return
+		}
+		log.Print("read: ",string(bs))
 	}
 
-	//<-(chan int)(nil)
 }
 
 func BenchmarkGg(b *testing.B) {
@@ -82,13 +71,11 @@ func BenchmarkGg(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-
+	con := conn_wrap.FromTcpConn(context.Background(), c)
 	for i := 0; i < b.N; i++ {
-		c.Write([]byte("hello"))
-		rbs := make([]byte, 1024)
-
+		con.Write([]byte("hello"))
 		{
-			c.Read(rbs)
+			con.Read()
 		}
 	}
 }

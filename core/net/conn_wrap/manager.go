@@ -53,11 +53,11 @@ func (p *Manager) SendToTopic(topic string, bs []byte, expect Interface) (count 
 			continue
 		}
 		count++
-		if wc, ok := c.Writer(); ok {
-			wc <- bs
+		err = c.Write(bs)
+		if err != nil {
+			return
 		}
 	}
-
 	return
 }
 

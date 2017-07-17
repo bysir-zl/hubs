@@ -8,14 +8,14 @@ import (
 
 type ConnHandle func(conn_wrap.Interface)
 
-func Run(ctx context.Context, addr string, net listener.Interface, h ConnHandle) (err error) {
-	err = net.Listen(addr)
+func Run(ctx context.Context, addr string, listener listener.Interface, h ConnHandle) (err error) {
+	err = listener.Listen(addr)
 	if err != nil {
 		return
 	}
 
 	for {
-		c, e := net.Accept(ctx)
+		c, e := listener.Accept(ctx)
 		if e != nil {
 			err = e
 			return
@@ -24,4 +24,8 @@ func Run(ctx context.Context, addr string, net listener.Interface, h ConnHandle)
 	}
 
 	return
+}
+
+func GetConnManager() *conn_wrap.Manager {
+	return conn_wrap.DefManager
 }

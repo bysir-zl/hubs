@@ -3,10 +3,10 @@ package conn_wrap
 import (
 	"net"
 	"context"
-	"log"
 	"io"
 	"github.com/bysir-zl/hubs/core/util"
 	"errors"
+	"github.com/bysir-zl/bygo/log"
 )
 
 type Tcp struct {
@@ -14,7 +14,33 @@ type Tcp struct {
 	Base
 }
 
+func (p *Tcp) Read() (bs []byte, err error) {
+	if p.closed {
+		err = errors.New("closed")
+		return
+	}
+	bs, ok := <-p.rc
+	if !ok {
+		err = errors.New("closed")
+		return
+	}
+	return
+}
+
+func (p *Tcp) Write(bs []byte) (err error) {
+	if p.closed {
+		err = errors.New("closed")
+		return
+	}
+	p.wc <- bs
+	return
+}
+
 func (p *Tcp) Close() (err error) {
+	if p.closed {
+		err = errors.New("closed")
+		return
+	}
 	p.close()
 
 	p.topicL.RLock()
@@ -23,6 +49,8 @@ func (p *Tcp) Close() (err error) {
 	}
 	p.topicL.RUnlock()
 
+	close(p.wc)
+	close(p.rc)
 	return p.conn.Close()
 }
 
@@ -44,7 +72,7 @@ func (p *Tcp) Subscribe(topic string) (err error) {
 	return
 }
 
-func (p *Tcp) Read() (bs []byte, err error) {
+func (p *Tcp) ReadSync() (bs []byte, err error) {
 	// 先读长度
 	lBs := make([]byte, 4)
 	i, err := io.ReadFull(p.conn, lBs)
@@ -63,7 +91,7 @@ func (p *Tcp) Read() (bs []byte, err error) {
 	return
 }
 
-func (p *Tcp) Write(bs []byte) (err error) {
+func (p *Tcp) WriteSync(bs []byte) (err error) {
 	bsW := make([]byte, len(bs)+4)
 	cmdB := util.Int322Byte(uint32(len(bs)))
 	bsW[0] = cmdB[0]
@@ -82,40 +110,41 @@ func FromTcpConn(ctx context.Context, conn *net.TCPConn) *Tcp {
 		Base: NewBase(),
 	}
 	stop := make(chan struct{})
+
+	// 开启写协程
 	go func() {
+		defer func() {
+			p.Close()
+		}()
 		for {
 			select {
-			case bs := <-p.wc:
-				e := p.Write(bs)
-				if e != nil {
-					log.Print("conn.Wirte err: ", e)
-				}
-			case <-ctx.Done():
-				p.conn.Close()
-				goto exit
 			case <-stop:
-				goto exit
+				return
+			case <-ctx.Done():
+				return
+			case bs, ok := <-p.wc:
+				if !ok {
+					return
+				}
+				e := p.WriteSync(bs)
+				if e != nil {
+					log.Info("conn.Write Err: ", e)
+				}
 			}
 		}
-	exit:
-		p.close()
-		close(p.wc)
 	}()
+
+	// 开启读协程
 	go func() {
 		for {
-			bs, err := p.Read()
-
+			bs, err := p.ReadSync()
 			if err != nil {
-				p.conn.Close()
-				goto exit
+				close(stop)
+				return
 			}
-
 			p.rc <- bs
 		}
-	exit:
-		p.close()
-		close(p.rc)
-		close(stop)
 	}()
+
 	return p
 }
