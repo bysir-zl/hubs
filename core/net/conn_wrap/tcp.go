@@ -2,7 +2,6 @@ package conn_wrap
 
 import (
 	"net"
-	"context"
 	"io"
 	"github.com/bysir-zl/hubs/core/util"
 	"errors"
@@ -104,7 +103,7 @@ func (p *Tcp) WriteSync(bs []byte) (err error) {
 	return
 }
 
-func FromTcpConn(ctx context.Context, conn *net.TCPConn) *Tcp {
+func FromTcpConn(conn *net.TCPConn) *Tcp {
 	p := &Tcp{
 		conn: conn,
 		Base: NewBase(),
@@ -119,8 +118,6 @@ func FromTcpConn(ctx context.Context, conn *net.TCPConn) *Tcp {
 		for {
 			select {
 			case <-stop:
-				return
-			case <-ctx.Done():
 				return
 			case bs, ok := <-p.wc:
 				if !ok {

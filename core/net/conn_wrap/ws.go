@@ -3,7 +3,6 @@ package conn_wrap
 import (
 	"github.com/gorilla/websocket"
 	"io"
-	"context"
 	"log"
 	"errors"
 )
@@ -95,7 +94,7 @@ func (p *Ws) WriteSync(bs []byte) (err error) {
 	return
 }
 
-func FromWsConn(ctx context.Context, conn *websocket.Conn) *Ws {
+func FromWsConn(conn *websocket.Conn) *Ws {
 	p := &Ws{
 		conn: conn,
 		Base: NewBase(),
@@ -110,8 +109,6 @@ func FromWsConn(ctx context.Context, conn *websocket.Conn) *Ws {
 		for {
 			select {
 			case <-stop:
-				return
-			case <-ctx.Done():
 				return
 			case bs ,ok:= <-p.wc:
 				if !ok {

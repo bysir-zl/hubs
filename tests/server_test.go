@@ -6,13 +6,42 @@ import (
 	"github.com/bysir-zl/hubs/core/net/listener"
 	"log"
 	"net"
-	"context"
 	"time"
 	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 )
 
-func TestRun(t *testing.T) {
-	tcpNet := &listener.Tcp{}
+func TestWsRun(t *testing.T) {
+	l := listener.NewWs()
+	handle := func(con conn_wrap.Interface) {
+		log.Print("conn")
+
+		con.Subscribe("room1")
+		defer con.UnSubscribe("room1")
+
+		for {
+			bs, err := con.Read()
+			if err != nil {
+				break
+			}
+
+			log.Print(string(bs))
+			con.Write([]byte("SB"))
+		}
+
+		log.Print("close")
+	}
+	s := server.New("127.0.0.1:10010", l, handle)
+	go func() {
+		time.Sleep(5 * time.Second)
+		s.Stop()
+	}()
+	err := s.Run()
+	t.Log(err)
+	time.Sleep(1*time.Second)
+}
+
+func TestTcpRun(t *testing.T) {
+	tcpNet := listener.NewWs()
 	handle := func(con conn_wrap.Interface) {
 		log.Print("conn")
 
@@ -39,8 +68,12 @@ func TestRun(t *testing.T) {
 
 		log.Print("close")
 	}
-	ctx := context.Background()
-	server.Run(ctx, "127.0.0.1:9900", tcpNet, handle)
+	s := server.New("127.0.0.1:9900", tcpNet, handle)
+	go func() {
+		time.Sleep(5 * time.Second)
+		s.Stop()
+	}()
+	s.Run()
 }
 
 func TestClient(t *testing.T) {
@@ -50,7 +83,7 @@ func TestClient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con := conn_wrap.FromTcpConn(context.Background(), c)
+	con := conn_wrap.FromTcpConn(c)
 
 	con.Write([]byte("hello"))
 
@@ -60,7 +93,7 @@ func TestClient(t *testing.T) {
 			log.Print("err ", err)
 			return
 		}
-		log.Print("read: ",string(bs))
+		log.Print("read: ", string(bs))
 	}
 
 }
@@ -71,7 +104,7 @@ func BenchmarkGg(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	con := conn_wrap.FromTcpConn(context.Background(), c)
+	con := conn_wrap.FromTcpConn(c)
 	for i := 0; i < b.N; i++ {
 		con.Write([]byte("hello"))
 		{
