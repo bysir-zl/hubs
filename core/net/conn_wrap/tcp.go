@@ -40,35 +40,11 @@ func (p *Tcp) Close() (err error) {
 		err = errors.New("closed")
 		return
 	}
-	p.close()
-
-	p.topicL.RLock()
-	for t := range p.subscribeTopics {
-		DefManager.UnSubscribe(t, p)
-	}
-	p.topicL.RUnlock()
+	p.closed = true
 
 	close(p.wc)
 	close(p.rc)
 	return p.conn.Close()
-}
-
-func (p *Tcp) UnSubscribe(topic string) (err error) {
-	p.topicL.Lock()
-	delete(p.subscribeTopics, topic)
-	p.topicL.Unlock()
-
-	DefManager.UnSubscribe(topic, p)
-	return
-}
-
-func (p *Tcp) Subscribe(topic string) (err error) {
-	p.topicL.Lock()
-	p.subscribeTopics[topic] = struct{}{}
-	p.topicL.Unlock()
-
-	DefManager.Subscribe(topic, p)
-	return
 }
 
 func (p *Tcp) ReadSync() (bs []byte, err error) {

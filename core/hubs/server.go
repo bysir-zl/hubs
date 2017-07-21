@@ -1,4 +1,4 @@
-package server
+package hubs
 
 import (
 	"github.com/bysir-zl/hubs/core/net/listener"
@@ -8,14 +8,15 @@ import (
 	"github.com/bysir-zl/hubs/core/util"
 )
 
-type ConnHandler func(conn_wrap.Interface)
+type ConnHandler func(*Server,conn_wrap.Interface)
 
 type Server struct {
-	addr       string
-	listener   listener.Interface
-	isGraceful bool
-	handler    ConnHandler
-	wg         sync.WaitGroup
+	addr        string
+	listener    listener.Interface
+	isGraceful  bool
+	handler     ConnHandler
+	wg          sync.WaitGroup
+	*Manager
 }
 
 const GRACEFUL_ENVIRON_STRING = "GRACEFUL_ENVIRON_STRING"
@@ -38,7 +39,7 @@ func (s *Server) Run() (err error) {
 		}
 		s.wg.Add(1)
 		go func() {
-			s.handler(c)
+			s.handler(s,c)
 			s.wg.Done()
 		}()
 	}
@@ -80,13 +81,10 @@ func New(addr string, listener listener.Interface, h ConnHandler) *Server {
 		isGraceful = true
 	}
 	return &Server{
-		isGraceful: isGraceful,
-		listener:   listener,
-		handler:    h,
-		addr:       addr,
+		isGraceful:  isGraceful,
+		listener:    listener,
+		handler:     h,
+		addr:        addr,
+		Manager: NewManager(),
 	}
-}
-
-func GetConnManager() *conn_wrap.Manager {
-	return conn_wrap.DefManager
 }

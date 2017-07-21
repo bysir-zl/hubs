@@ -51,7 +51,7 @@ func listen(addr string) (err error) {
 	}
 	ctx := context.Background()
 	log.Print("running")
-	err = server.Run(ctx, addr, tcpP, handle)
+	err = hubs.Run(ctx, addr, tcpP, handle)
 	if err != nil {
 		panic(err)
 	}
