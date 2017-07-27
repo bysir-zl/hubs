@@ -4,24 +4,23 @@ import (
 	"net"
 	"strings"
 	"strconv"
-	"context"
 	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 )
 
 type Tcp struct {
 	listener *net.TCPListener
+	isClose  bool
 }
 
-func (p *Tcp) Accept(ctx context.Context) (c conn_wrap.Interface, err error) {
-	err = ctx.Err()
-	if err != nil {
-		return
-	}
+func (p *Tcp) Accept() (c conn_wrap.Interface, err error) {
 	tcpConn, err := p.listener.AcceptTCP()
 	if err != nil {
+		if p.isClose {
+			err = Err_Stoped
+		}
 		return
 	}
-	c = conn_wrap.FromTcpConn(ctx, tcpConn)
+	c = conn_wrap.FromTcpConn(tcpConn)
 	return
 }
 
@@ -34,5 +33,20 @@ func (p *Tcp) Listen(addr string) (err error) {
 }
 
 func (p *Tcp) Close() (err error) {
+	p.isClose = false
 	return p.listener.Close()
+}
+
+func (p *Tcp) Fd() (pd uintptr, err error) {
+	f, err := p.listener.File()
+	if err != nil {
+		return
+	}
+	pd = f.Fd()
+	return
+}
+
+func NewTcp() *Tcp {
+	return &Tcp{
+	}
 }

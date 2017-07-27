@@ -2,7 +2,6 @@ package conn_wrap
 
 import (
 	"net"
-	"context"
 	"io"
 	"github.com/bysir-zl/hubs/core/util"
 	"errors"
@@ -41,35 +40,11 @@ func (p *Tcp) Close() (err error) {
 		err = errors.New("closed")
 		return
 	}
-	p.close()
-
-	p.topicL.RLock()
-	for t := range p.subscribeTopics {
-		DefManager.UnSubscribe(t, p)
-	}
-	p.topicL.RUnlock()
+	p.closed = true
 
 	close(p.wc)
 	close(p.rc)
 	return p.conn.Close()
-}
-
-func (p *Tcp) UnSubscribe(topic string) (err error) {
-	p.topicL.Lock()
-	delete(p.subscribeTopics, topic)
-	p.topicL.Unlock()
-
-	DefManager.UnSubscribe(topic, p)
-	return
-}
-
-func (p *Tcp) Subscribe(topic string) (err error) {
-	p.topicL.Lock()
-	p.subscribeTopics[topic] = struct{}{}
-	p.topicL.Unlock()
-
-	DefManager.Subscribe(topic, p)
-	return
 }
 
 func (p *Tcp) ReadSync() (bs []byte, err error) {
@@ -104,7 +79,7 @@ func (p *Tcp) WriteSync(bs []byte) (err error) {
 	return
 }
 
-func FromTcpConn(ctx context.Context, conn *net.TCPConn) *Tcp {
+func FromTcpConn(conn *net.TCPConn) *Tcp {
 	p := &Tcp{
 		conn: conn,
 		Base: NewBase(),
@@ -119,8 +94,6 @@ func FromTcpConn(ctx context.Context, conn *net.TCPConn) *Tcp {
 		for {
 			select {
 			case <-stop:
-				return
-			case <-ctx.Done():
 				return
 			case bs, ok := <-p.wc:
 				if !ok {

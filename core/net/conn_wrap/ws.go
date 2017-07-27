@@ -3,7 +3,6 @@ package conn_wrap
 import (
 	"github.com/gorilla/websocket"
 	"io"
-	"context"
 	"log"
 	"errors"
 )
@@ -40,35 +39,11 @@ func (p *Ws) Close() (err error) {
 		err = errors.New("closed")
 		return
 	}
-	p.close()
-
-	p.topicL.RLock()
-	for t := range p.subscribeTopics {
-		DefManager.UnSubscribe(t, p)
-	}
-	p.topicL.RUnlock()
+	p.closed = true
 
 	close(p.wc)
 	close(p.rc)
 	return p.conn.Close()
-}
-
-func (p *Ws) UnSubscribe(topic string) (err error) {
-	p.topicL.Lock()
-	delete(p.subscribeTopics, topic)
-	p.topicL.Unlock()
-
-	DefManager.UnSubscribe(topic, p)
-	return
-}
-
-func (p *Ws) Subscribe(topic string) (err error) {
-	p.topicL.Lock()
-	p.subscribeTopics[topic] = struct{}{}
-	p.topicL.Unlock()
-
-	DefManager.Subscribe(topic, p)
-	return
 }
 
 func (p *Ws) ReadSync() (bs []byte, err error) {
@@ -95,7 +70,7 @@ func (p *Ws) WriteSync(bs []byte) (err error) {
 	return
 }
 
-func FromWsConn(ctx context.Context, conn *websocket.Conn) *Ws {
+func FromWsConn(conn *websocket.Conn) *Ws {
 	p := &Ws{
 		conn: conn,
 		Base: NewBase(),
@@ -111,9 +86,7 @@ func FromWsConn(ctx context.Context, conn *websocket.Conn) *Ws {
 			select {
 			case <-stop:
 				return
-			case <-ctx.Done():
-				return
-			case bs ,ok:= <-p.wc:
+			case bs, ok := <-p.wc:
 				if !ok {
 					return
 				}
