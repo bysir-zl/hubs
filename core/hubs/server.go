@@ -8,14 +8,16 @@ import (
 	"github.com/bysir-zl/hubs/core/util"
 )
 
-type ConnHandler func(*Server,conn_wrap.Interface)
+type ConnHandler interface {
+	Server(*Server, conn_wrap.Interface)
+}
 
 type Server struct {
-	addr        string
-	listener    listener.Interface
-	isGraceful  bool
-	handler     ConnHandler
-	wg          sync.WaitGroup
+	addr       string
+	listener   listener.Interface
+	isGraceful bool
+	handler    ConnHandler
+	wg         sync.WaitGroup
 	*Manager
 }
 
@@ -39,7 +41,7 @@ func (s *Server) Run() (err error) {
 		}
 		s.wg.Add(1)
 		go func() {
-			s.handler(s,c)
+			s.handler.Server(s, c)
 			s.wg.Done()
 		}()
 	}
@@ -81,10 +83,10 @@ func New(addr string, listener listener.Interface, h ConnHandler) *Server {
 		isGraceful = true
 	}
 	return &Server{
-		isGraceful:  isGraceful,
-		listener:    listener,
-		handler:     h,
-		addr:        addr,
-		Manager: NewManager(),
+		isGraceful: isGraceful,
+		listener:   listener,
+		handler:    h,
+		addr:       addr,
+		Manager:    NewManager(),
 	}
 }
