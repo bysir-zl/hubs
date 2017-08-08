@@ -43,7 +43,31 @@ func (p *Tcp) Close() (err error) {
 	p.closed = true
 
 	close(p.wc)
-	close(p.rc)
+	return p.conn.Close()
+}
+
+// unused
+func (p *Tcp) CloseWaitWrite() (err error) {
+	if p.closed {
+		err = errors.New("closed")
+		return
+	}
+	p.closed = true
+
+	for {
+		select {
+		case bs := <-p.wc:
+			e := p.WriteSync(bs)
+			if e != nil {
+				log.Info("conn.Write Err: ", e)
+			}
+		default:
+			goto end
+		}
+	}
+end:
+
+	close(p.wc)
 	return p.conn.Close()
 }
 

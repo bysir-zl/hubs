@@ -10,65 +10,53 @@ import (
 	"github.com/bysir-zl/hubs/core/hubs"
 )
 
+type Handler struct {
+}
+
+func (p *Handler) Server(s *hubs.Server, con conn_wrap.Interface) {
+	log.Print("conn")
+
+	s.Subscribe(con, "room1")
+	defer s.UnSubscribe(con, "room1")
+
+	authed := false
+	go func() {
+		time.Sleep(5 * time.Second)
+		if !authed {
+			con.Close()
+		}
+	}()
+
+	for {
+		bs, err := con.Read()
+		if err != nil {
+			break
+		}
+		authed = true
+		log.Print(string(bs))
+		con.Write([]byte("SB"))
+	}
+
+	log.Print("close")
+}
+
 func TestWsRun(t *testing.T) {
 	l := listener.NewWs()
-	handle := func(s *hubs.Server,con conn_wrap.Interface) {
-		log.Print("conn")
 
-		s.Subscribe(con,"room1")
-		defer s.UnSubscribe(con,"room1")
-
-		for {
-			bs, err := con.Read()
-			if err != nil {
-				break
-			}
-
-			log.Print(string(bs))
-			con.Write([]byte("SB"))
-		}
-
-		log.Print("close")
-	}
-	s := hubs.New("127.0.0.1:10010", l, handle)
+	s := hubs.New("127.0.0.1:10010", l, &Handler{})
 	go func() {
 		time.Sleep(5 * time.Second)
 		s.Stop()
 	}()
 	err := s.Run()
 	t.Log(err)
-	time.Sleep(1*time.Second)
+	time.Sleep(1 * time.Second)
 }
 
 func TestTcpRun(t *testing.T) {
 	tcpNet := listener.NewWs()
-	handle := func(s *hubs.Server,con conn_wrap.Interface) {
-		log.Print("conn")
 
-		s.Subscribe(con,"room1")
-		defer s.UnSubscribe(con,"room1")
-
-		authed := false
-		go func() {
-			time.Sleep(5 * time.Second)
-			if !authed {
-				con.Close()
-			}
-		}()
-
-		for {
-			bs, err := con.Read()
-			if err != nil {
-				break
-			}
-			authed = true
-			log.Print(string(bs))
-			con.Write([]byte("SB"))
-		}
-
-		log.Print("close")
-	}
-	s := hubs.New("127.0.0.1:9900", tcpNet, handle)
+	s := hubs.New("127.0.0.1:9900", tcpNet, &Handler{})
 	go func() {
 		time.Sleep(5 * time.Second)
 		s.Stop()
@@ -111,4 +99,12 @@ func BenchmarkGg(b *testing.B) {
 			con.Read()
 		}
 	}
+}
+
+func TestChannel(t *testing.T) {
+	var b = make(chan int, 10)
+	b <- 1
+	close(b)
+	// 这里会出错
+	b <- 2
 }
