@@ -2,8 +2,6 @@ package conn_wrap
 
 import (
 	"net"
-	"io"
-	"github.com/bysir-zl/hubs/core/util"
 	"errors"
 	"github.com/bysir-zl/bygo/log"
 )
@@ -11,6 +9,11 @@ import (
 type Tcp struct {
 	conn *net.TCPConn
 	Base
+}
+
+// 可自定义分包器, 默认是lengthfield
+func (p *Tcp) SetProtoCoder(protoCoder ProtoCoder) {
+	p.Base.protoCoder = protoCoder
 }
 
 func (p *Tcp) Read() (bs []byte, err error) {
@@ -43,63 +46,16 @@ func (p *Tcp) Close() (err error) {
 	p.closed = true
 
 	close(p.wc)
-	return p.conn.Close()
-}
-
-// unused
-func (p *Tcp) CloseWaitWrite() (err error) {
-	if p.closed {
-		err = errors.New("closed")
-		return
-	}
-	p.closed = true
-
-	for {
-		select {
-		case bs := <-p.wc:
-			e := p.WriteSync(bs)
-			if e != nil {
-				log.Info("conn.Write Err: ", e)
-			}
-		default:
-			goto end
-		}
-	}
-end:
-
-	close(p.wc)
+	close(p.rc)
 	return p.conn.Close()
 }
 
 func (p *Tcp) ReadSync() (bs []byte, err error) {
-	// 先读长度
-	lBs := make([]byte, 4)
-	i, err := io.ReadFull(p.conn, lBs)
-	if err != nil {
-		return
-	}
-
-	if i != 4 {
-		err = errors.New("err header")
-		return
-	}
-	l := util.Byte4Int32([4]byte{lBs[0], lBs[1], lBs[2], lBs[3]})
-	bs = make([]byte, l)
-	_, err = io.ReadFull(p.conn, bs)
-
-	return
+	return p.protoCoder.Read(p.conn)
 }
 
 func (p *Tcp) WriteSync(bs []byte) (err error) {
-	bsW := make([]byte, len(bs)+4)
-	cmdB := util.Int322Byte(uint32(len(bs)))
-	bsW[0] = cmdB[0]
-	bsW[1] = cmdB[1]
-	bsW[2] = cmdB[2]
-	bsW[3] = cmdB[3]
-
-	copy(bsW[4:], bs)
-	_, err = p.conn.Write(bsW)
+	_, err = p.protoCoder.Write(p.conn, bs)
 	return
 }
 

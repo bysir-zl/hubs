@@ -12,7 +12,7 @@ type Kcp struct {
 }
 
 func (p *Kcp) Accept() (c conn_wrap.Interface, err error) {
-	kcpConn, err := p.listener.Accept()
+	kcpConn, err := p.listener.AcceptKCP()
 	if err != nil {
 		if p.isClose {
 			err = Err_Stoped

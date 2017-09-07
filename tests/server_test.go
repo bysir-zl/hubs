@@ -28,6 +28,11 @@ func (p *Handler) Server(s *hubs.Server, con conn_wrap.Interface) {
 		}
 	}()
 
+	go func() {
+		for range time.Tick(1 * time.Second) {
+			con.Write([]byte("pong"))
+		}
+	}()
 	for {
 		bs, err := con.Read()
 		if err != nil {
@@ -54,40 +59,68 @@ func TestWsRun(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func TestTcpRun(t *testing.T) {
-	tcpNet := listener.NewWs()
+func TestTcpServer(t *testing.T) {
+	tcpNet := listener.NewTcp()
 
 	s := hubs.New("127.0.0.1:9900", tcpNet, &Handler{})
 	go func() {
 		time.Sleep(5 * time.Second)
-		s.Stop()
+		//s.Stop()
 	}()
-	s.Run()
-}
-
-func TestKcpServer(t *testing.T) {
-	tcpNet := listener.NewKcp()
-
-	s := hubs.New(":9900", tcpNet, &Handler{})
-	err:=s.Run()
+	err := s.Run()
 	t.Log(err)
+
 }
 
-func TestKcpClient(t *testing.T) {
-	c,err:=kcp.DialWithOptions(":9900",nil,10,3)
+func TestTcpClient(t *testing.T) {
+	a := net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 9900, Zone: ""}
+	c, err := net.DialTCP("tcp", nil, &a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con:=conn_wrap.FromKcpConn(c)
+	log.Print("conned")
+	con := conn_wrap.FromTcpConn(c)
 
 	con.Write([]byte("hello"))
-	
+	log.Print("Write")
+
 	for {
 		bs, err := con.Read()
 		if err != nil {
 			log.Print("err ", err)
 			return
 		}
+		log.Print("read: ", string(bs))
+	}
+
+}
+
+func TestKcpServer(t *testing.T) {
+	tcpNet := listener.NewKcp()
+
+	s := hubs.New(":9900", tcpNet, &Handler{})
+	err := s.Run()
+	t.Log(err)
+}
+
+func TestKcpClient(t *testing.T) {
+	c, err := kcp.DialWithOptions(":9900", nil, 10, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con := conn_wrap.FromKcpConn(c)
+	con.StartPing(10 * time.Second)
+
+	con.Write([]byte("hello"))
+
+	for {
+		bs, err := con.Read()
+
+		if err != nil {
+			log.Print("err ", err)
+			return
+		}
+		con.Close()
 		log.Print("read: ", string(bs))
 	}
 
