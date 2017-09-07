@@ -24,7 +24,7 @@ func (p *Tcp) Accept() (c conn_wrap.Interface, err error) {
 	return
 }
 
-func (p *Tcp) Listen(addr string) (err error) {
+func (p *Tcp) Listen(addr string, isFormFd bool) (err error) {
 	ipP := strings.Split(addr, ":")
 	port, _ := strconv.Atoi(ipP[1])
 	a := net.TCPAddr{IP: net.ParseIP(ipP[0]), Port: port}

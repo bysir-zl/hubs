@@ -8,6 +8,7 @@ import (
 	"time"
 	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 	"github.com/bysir-zl/hubs/core/hubs"
+	"github.com/xtaci/kcp-go"
 )
 
 type Handler struct {
@@ -62,6 +63,34 @@ func TestTcpRun(t *testing.T) {
 		s.Stop()
 	}()
 	s.Run()
+}
+
+func TestKcpServer(t *testing.T) {
+	tcpNet := listener.NewKcp()
+
+	s := hubs.New(":9900", tcpNet, &Handler{})
+	err:=s.Run()
+	t.Log(err)
+}
+
+func TestKcpClient(t *testing.T) {
+	c,err:=kcp.DialWithOptions(":9900",nil,10,3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con:=conn_wrap.FromKcpConn(c)
+
+	con.Write([]byte("hello"))
+	
+	for {
+		bs, err := con.Read()
+		if err != nil {
+			log.Print("err ", err)
+			return
+		}
+		log.Print("read: ", string(bs))
+	}
+
 }
 
 func TestClient(t *testing.T) {
