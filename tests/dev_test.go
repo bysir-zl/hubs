@@ -40,3 +40,18 @@ func TestBinary(t *testing.T) {
 func TestMove(t *testing.T) {
 	t.Log(1<<(2*4))
 }
+
+func TestChanClose(t *testing.T) {
+	c:=make(chan int,2)
+	go func() {
+		c<-1
+		c<-1
+		c<-1
+	}()
+	
+	time.AfterFunc(1*time.Second, func() {
+		close(c)
+	})
+	
+	time.Sleep(1*time.Hour)
+}

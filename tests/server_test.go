@@ -10,13 +10,14 @@ import (
 	"github.com/bysir-zl/hubs/core/hubs"
 	"github.com/xtaci/kcp-go"
 	"errors"
+	"strconv"
 )
 
 type Handler struct {
 }
 
 func (p *Handler) Server(s *hubs.Server, con *conn_wrap.Conn) {
-	con.CheckPing(15 * time.Second)
+	con.CheckPing(5 * time.Second)
 
 	log.Print("conn")
 
@@ -39,7 +40,7 @@ func (p *Handler) Server(s *hubs.Server, con *conn_wrap.Conn) {
 		}
 		authed = true
 		log.Print(string(bs))
-		con.Write([]byte("SB"))
+		 con.Write([]byte("SB"))
 	}
 
 	log.Print("close")
@@ -107,7 +108,7 @@ func TestKcpClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	con := conn_wrap.FromKcpConn(c)
+	con := conn_wrap.FromKcpConn(c,conn_wrap.NewLenProtoCoder())
 	con.StartPing(10 * time.Second)
 	con.CheckPong(15 * time.Second)
 
@@ -123,6 +124,29 @@ func TestKcpClient(t *testing.T) {
 	}
 
 	time.Sleep(time.Second)
+}
+
+func TestKcpFor(t *testing.T) {
+	c, err := kcp.DialWithOptions(":9900", nil, 0, 0)
+	if err != nil {
+		log.Print(err)
+	}
+	con := conn_wrap.FromKcpConn(c,conn_wrap.NewLenProtoCoder())
+	for i := 0; i < 1000; i++ {
+
+
+		//con.StartPing(10 * time.Second)
+		//con.CheckPong(15 * time.Second)
+
+		con.Write([]byte("hello"+strconv.Itoa(i)))
+		//r,_:=con.Read()
+		//log.Print(string(r))
+	}
+	
+	select {
+	
+	}
+	
 }
 
 func TestClient(t *testing.T) {

@@ -24,6 +24,9 @@ type Conn struct {
 	checkPingDuration time.Duration // 如果没收到一段时间没收到ping 则关闭连接,为0则不检查
 	checkPongDuration time.Duration // 如果没收到一段时间没收到pong 则关闭连接,为0则不检查
 	conn              ReadWriteCloser
+
+	lastPingAt time.Time
+	lastPongAt time.Time
 }
 
 type ReadWriteCloser interface {
@@ -38,7 +41,7 @@ var (
 )
 
 const (
-	BufSize = 256
+	BufSize = 2
 )
 
 func (p *Conn) SetValue(key string, value interface{}) {
@@ -51,20 +54,35 @@ func (p *Conn) Value(key string) (value interface{}, ok bool) {
 }
 
 func (p *Conn) Read() (bs []byte, err error) {
+
 	if atomic.LoadInt32(&p.closed) > 0 {
 		err = p.closeReason
 		return
 	}
+
+read:
 	bs, ok := <-p.rc
 	if !ok {
 		err = p.closeReason
 		return
 	}
+
+	if bytes.Compare(bs, Ping) == 0 {
+		p.lastPingAt = time.Now()
+		// 回应一个pong
+		p.wc <- Pong
+		goto read
+	} else if bytes.Compare(bs, Pong) == 0 {
+		p.lastPongAt = time.Now()
+		goto read
+	}
+
 	return
 }
 
 func (p *Conn) Write(bs []byte) (err error) {
-	if atomic.LoadInt32(&p.closed) > 0 {
+	val := atomic.LoadInt32(&p.closed)
+	if val > 0 {
 		err = p.closeReason
 		return
 	}
@@ -83,17 +101,21 @@ func (p *Conn) WriteSync(bs []byte) (err error) {
 
 // 关闭连接, Write和Read的阻塞将会打破 并返回错误
 func (p *Conn) Close(reason error) (err error) {
+	log.InfoT("conn close reason:", reason)
 	if atomic.AddInt32(&p.closed, 1) > 1 {
 		err = errors.New("closed")
 		return
 	}
+	// 如果这里关闭了写通道, 在上面Write方法内如果阻塞了(p.wc满了), 就会发生 send to closed chan 的panic
+	//close(p.wc)
+	close(p.dieC)
+	close(p.rc)
+
 	if reason == nil {
 		reason = Err_CloseDefault
 	}
 	p.closeReason = reason
-	close(p.wc)
-	close(p.rc)
-	close(p.dieC)
+
 	return p.conn.Close()
 }
 
@@ -129,6 +151,9 @@ func (p *Conn) CheckPong(duration time.Duration) {
 func (p *Conn) monitor() {
 	// 开启写协程
 	go func() {
+		defer func() {
+			log.InfoT("test", "wc go closed")
+		}()
 		for {
 			select {
 			case <-p.dieC:
@@ -137,7 +162,9 @@ func (p *Conn) monitor() {
 				if !ok {
 					return
 				}
+				log.InfoT("test","writeBegin")
 				e := p.conn.WriteFrame(bs)
+				log.InfoT("test","writeEnd")
 				if e != nil {
 					log.Info("conn.Write Err: ", e)
 				}
@@ -156,36 +183,27 @@ func (p *Conn) monitor() {
 				return
 			}
 			temp <- bs
-
 		}
 	}()
 
 	// 检测ping
-	lastPingAt := time.Now()
-	lastPongAt := time.Now()
+	p.lastPingAt = time.Now()
+	p.lastPongAt = time.Now()
 	go func() {
 		for {
 			select {
 			case <-p.dieC:
 				return
-			case bs := <-temp:
-				if bytes.Compare(bs, Ping) == 0 {
-					lastPingAt = time.Now()
-					// 回应一个pong
-					p.wc <- Pong
-				} else if bytes.Compare(bs, Pong) == 0 {
-					lastPongAt = time.Now()
-				} else {
-					p.rc <- bs
-				}
-				break
+			case p.rc <- <-temp:
+				//p.rc <-bs
+				log.InfoT("test","p.rc len",len(p.rc),p.closed)
 			case <-time.Tick(1 * time.Second):
-				if p.checkPingDuration != 0 && time.Now().Sub(lastPingAt) > p.checkPingDuration {
+				if p.checkPingDuration != 0 && time.Now().Sub(p.lastPingAt) > p.checkPingDuration {
 					// 超时没收到ping就关闭
 					p.Close(Err_CloseByPing)
 					return
 				}
-				if p.checkPongDuration != 0 && time.Now().Sub(lastPongAt) > p.checkPongDuration {
+				if p.checkPongDuration != 0 && time.Now().Sub(p.lastPongAt) > p.checkPongDuration {
 					// 超时没收到pong就关闭
 					p.Close(Err_CloseByPong)
 					return
