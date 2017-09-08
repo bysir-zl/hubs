@@ -9,6 +9,7 @@ import (
 	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 	"github.com/bysir-zl/hubs/core/hubs"
 	"github.com/xtaci/kcp-go"
+	"errors"
 )
 
 type Handler struct {
@@ -26,7 +27,7 @@ func (p *Handler) Server(s *hubs.Server, con *conn_wrap.Conn) {
 	go func() {
 		time.Sleep(5 * time.Second)
 		if !authed {
-			con.Close()
+			con.Close(errors.New("no auth"))
 		}
 	}()
 

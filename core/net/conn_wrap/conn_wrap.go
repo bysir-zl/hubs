@@ -13,13 +13,13 @@ import (
 type Conn struct {
 	rc   chan []byte
 	wc   chan []byte
-	buf  []byte
 	data map[string]interface{}
 
 	subscribeTopics map[string]struct{} // 所有注册过的Topic
 	topicLocker     sync.RWMutex
 	closed          int32         // 原子变量
 	dieC            chan struct{} // 关闭连接通知
+	closeReason     error         // 关闭原因
 
 	checkPingDuration time.Duration // 如果没收到一段时间没收到ping 则关闭连接,为0则不检查
 	checkPongDuration time.Duration // 如果没收到一段时间没收到pong 则关闭连接,为0则不检查
@@ -52,12 +52,12 @@ func (p *Conn) Value(key string) (value interface{}, ok bool) {
 
 func (p *Conn) Read() (bs []byte, err error) {
 	if atomic.LoadInt32(&p.closed) > 0 {
-		err = errors.New("closed")
+		err = p.closeReason
 		return
 	}
 	bs, ok := <-p.rc
 	if !ok {
-		err = errors.New("closed")
+		err = p.closeReason
 		return
 	}
 	return
@@ -65,19 +65,20 @@ func (p *Conn) Read() (bs []byte, err error) {
 
 func (p *Conn) Write(bs []byte) (err error) {
 	if atomic.LoadInt32(&p.closed) > 0 {
-		err = errors.New("closed")
+		err = p.closeReason
 		return
 	}
 	p.wc <- bs
 	return
 }
 
-func (p *Conn) Close() (err error) {
+func (p *Conn) Close(reason error) (err error) {
 	if atomic.AddInt32(&p.closed, 1) > 1 {
 		err = errors.New("closed")
 		return
 	}
-
+	
+	p.closeReason = reason
 	close(p.wc)
 	close(p.rc)
 	close(p.dieC)
@@ -135,12 +136,11 @@ func (p *Conn) monitor() {
 	temp := make(chan []byte, 256)
 	// 开启读协程
 	go func() {
-
 		for {
 			bs, err := p.conn.ReadFrame()
 			if err != nil {
 				// 有错误就直接关闭
-				p.Close()
+				p.Close(err)
 				return
 			}
 			temp <- bs
@@ -170,12 +170,12 @@ func (p *Conn) monitor() {
 			case <-time.Tick(1 * time.Second):
 				if p.checkPingDuration != 0 && time.Now().Sub(lastPingAt) > p.checkPingDuration {
 					// 超时没收到ping就关闭
-					p.Close()
+					p.Close(Err_CloseByPing)
 					return
 				}
 				if p.checkPongDuration != 0 && time.Now().Sub(lastPongAt) > p.checkPongDuration {
 					// 超时没收到pong就关闭
-					p.Close()
+					p.Close(Err_CloseByPong)
 					return
 				}
 			}
@@ -187,7 +187,6 @@ func FromReadWriteCloser(conn ReadWriteCloser) *Conn {
 	return &Conn{
 		rc:              make(chan []byte, BufSize),
 		wc:              make(chan []byte, BufSize),
-		buf:             make([]byte, 1024),
 		data:            make(map[string]interface{}),
 		subscribeTopics: make(map[string]struct{}),
 		dieC:            make(chan struct{}),

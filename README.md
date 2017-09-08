@@ -1,14 +1,18 @@
 # hubs
-build horizontal scaling of websocket server
-## function
-- scale horizontally, it`s mean u can run it on multi server for improve performance .
-- custom rule of user auth .
 
-## dev 
-- 心跳
-- 多服务器水平扩展 (用Consul)
-- 自定义用户认证接口
-- 多模块 模块之间rpc 可插拔 可重复配置多个模块
-- 用户不在线时消息处理(比如用户断线重连恢复现场)
-- 同步帧?
-- 消息持久化? 实现消息重放
+多协议统一封装通信, 目前支持Kcp,Tcp,Ws; 
+
+
+## 特性
+
+- 统一封装调用方法
+
+统一了多个网络协议通信之间的差异
+
+- 自带心跳检测机制
+
+当然你也可以不开启, 但如果不开启的话在使用UDP通信的时候将不能正常回收连接;
+
+- 自定义Protocal
+
+自带一个LengthProtocal解决粘包等问题. 
