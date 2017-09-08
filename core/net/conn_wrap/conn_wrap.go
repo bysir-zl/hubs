@@ -77,7 +77,9 @@ func (p *Conn) Close(reason error) (err error) {
 		err = errors.New("closed")
 		return
 	}
-	
+	if reason == nil {
+		reason = Err_CloseDefault
+	}
 	p.closeReason = reason
 	close(p.wc)
 	close(p.rc)
