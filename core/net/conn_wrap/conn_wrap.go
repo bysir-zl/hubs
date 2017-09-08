@@ -41,7 +41,7 @@ var (
 )
 
 const (
-	BufSize = 2
+	BufSize = 256
 )
 
 func (p *Conn) SetValue(key string, value interface{}) {
@@ -54,7 +54,6 @@ func (p *Conn) Value(key string) (value interface{}, ok bool) {
 }
 
 func (p *Conn) Read() (bs []byte, err error) {
-
 	if atomic.LoadInt32(&p.closed) > 0 {
 		err = p.closeReason
 		return
@@ -70,7 +69,7 @@ read:
 	if bytes.Compare(bs, Ping) == 0 {
 		p.lastPingAt = time.Now()
 		// 回应一个pong
-		p.wc <- Pong
+		p.Write(Pong)
 		goto read
 	} else if bytes.Compare(bs, Pong) == 0 {
 		p.lastPongAt = time.Now()
@@ -86,7 +85,14 @@ func (p *Conn) Write(bs []byte) (err error) {
 		err = p.closeReason
 		return
 	}
-	p.wc <- bs
+
+	// 当p.wc满了阻塞的时候关闭连接 也能打破阻塞
+	select {
+	case <-p.dieC:
+		err = p.closeReason
+		return
+	case p.wc <- bs:
+	}
 	return
 }
 
@@ -101,15 +107,14 @@ func (p *Conn) WriteSync(bs []byte) (err error) {
 
 // 关闭连接, Write和Read的阻塞将会打破 并返回错误
 func (p *Conn) Close(reason error) (err error) {
-	log.InfoT("conn close reason:", reason)
 	if atomic.AddInt32(&p.closed, 1) > 1 {
 		err = errors.New("closed")
 		return
 	}
 	// 如果这里关闭了写通道, 在上面Write方法内如果阻塞了(p.wc满了), 就会发生 send to closed chan 的panic
 	//close(p.wc)
-	close(p.dieC)
 	close(p.rc)
+	close(p.dieC)
 
 	if reason == nil {
 		reason = Err_CloseDefault
@@ -151,9 +156,6 @@ func (p *Conn) CheckPong(duration time.Duration) {
 func (p *Conn) monitor() {
 	// 开启写协程
 	go func() {
-		defer func() {
-			log.InfoT("test", "wc go closed")
-		}()
 		for {
 			select {
 			case <-p.dieC:
@@ -162,9 +164,7 @@ func (p *Conn) monitor() {
 				if !ok {
 					return
 				}
-				log.InfoT("test","writeBegin")
 				e := p.conn.WriteFrame(bs)
-				log.InfoT("test","writeEnd")
 				if e != nil {
 					log.Info("conn.Write Err: ", e)
 				}
@@ -172,14 +172,14 @@ func (p *Conn) monitor() {
 		}
 	}()
 
-	temp := make(chan []byte, 256)
+	temp := make(chan []byte, 8)
 	// 开启读协程
 	go func() {
 		for {
 			bs, err := p.conn.ReadFrame()
 			if err != nil {
 				// 有错误就直接关闭
-				p.Close(err)
+				p.Close(errors.New("broken pipe"))
 				return
 			}
 			temp <- bs
@@ -194,9 +194,6 @@ func (p *Conn) monitor() {
 			select {
 			case <-p.dieC:
 				return
-			case p.rc <- <-temp:
-				//p.rc <-bs
-				log.InfoT("test","p.rc len",len(p.rc),p.closed)
 			case <-time.Tick(1 * time.Second):
 				if p.checkPingDuration != 0 && time.Now().Sub(p.lastPingAt) > p.checkPingDuration {
 					// 超时没收到ping就关闭
@@ -206,6 +203,12 @@ func (p *Conn) monitor() {
 				if p.checkPongDuration != 0 && time.Now().Sub(p.lastPongAt) > p.checkPongDuration {
 					// 超时没收到pong就关闭
 					p.Close(Err_CloseByPong)
+					return
+				}
+			case bs := <-temp:
+				select {
+				case p.rc <- bs:
+				case <-p.dieC:
 					return
 				}
 			}

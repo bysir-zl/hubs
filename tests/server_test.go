@@ -41,6 +41,7 @@ func (p *Handler) Server(s *hubs.Server, con *conn_wrap.Conn) {
 		authed = true
 		log.Print(string(bs))
 		 con.Write([]byte("SB"))
+
 	}
 
 	log.Print("close")
@@ -62,11 +63,7 @@ func TestWsRun(t *testing.T) {
 func TestTcpServer(t *testing.T) {
 	tcpNet := listener.NewTcp()
 
-	s := hubs.New("127.0.0.1:9900", tcpNet, &Handler{})
-	go func() {
-		time.Sleep(5 * time.Second)
-		//s.Stop()
-	}()
+	s := hubs.New(":9900", tcpNet, &Handler{})
 	err := s.Run()
 	t.Log(err)
 
@@ -93,6 +90,23 @@ func TestTcpClient(t *testing.T) {
 		log.Print("read: ", string(bs))
 	}
 
+}
+
+func TestTcpFor(t *testing.T) {
+	a := net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 9900, Zone: ""}
+	c, err := net.DialTCP("tcp", nil, &a)
+	if err != nil {
+		log.Print(err)
+	}
+	con := conn_wrap.FromTcpConn(c,conn_wrap.NewLenProtoCoder())
+	for i := 0; i < 10000; i++ {
+		//con.StartPing(10 * time.Second)
+		//con.CheckPong(15 * time.Second)
+
+		con.Write([]byte("hello"+strconv.Itoa(i)))
+		//r,_:=con.Read()
+		//log.Print(string(r))
+	}
 }
 
 func TestKcpServer(t *testing.T) {
@@ -127,26 +141,25 @@ func TestKcpClient(t *testing.T) {
 }
 
 func TestKcpFor(t *testing.T) {
-	c, err := kcp.DialWithOptions(":9900", nil, 0, 0)
-	if err != nil {
-		log.Print(err)
-	}
-	con := conn_wrap.FromKcpConn(c,conn_wrap.NewLenProtoCoder())
-	for i := 0; i < 1000; i++ {
 
-
+	for i := 0; i < 10000; i++ {
 		//con.StartPing(10 * time.Second)
 		//con.CheckPong(15 * time.Second)
+		go func(i int) {
+			c, err := kcp.DialWithOptions(":9900", nil, 10, 3)
+			if err != nil {
+				log.Print(err)
+			}
+			con := conn_wrap.FromKcpConn(c,conn_wrap.NewLenProtoCoder())
+			con.Write([]byte("hello"+strconv.Itoa(i)))
+			r,_:=con.Read()
+			log.Print(string(r))
+		}(i )
+	}
 
-		con.Write([]byte("hello"+strconv.Itoa(i)))
-		//r,_:=con.Read()
-		//log.Print(string(r))
-	}
-	
 	select {
-	
+
 	}
-	
 }
 
 func TestClient(t *testing.T) {
@@ -169,27 +182,4 @@ func TestClient(t *testing.T) {
 		log.Print("read: ", string(bs))
 	}
 
-}
-
-func BenchmarkGg(b *testing.B) {
-	a := net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 9900, Zone: ""}
-	c, err := net.DialTCP("tcp", nil, &a)
-	if err != nil {
-		b.Fatal(err)
-	}
-	con := conn_wrap.FromTcpConn(c, conn_wrap.NewLenProtoCoder())
-	for i := 0; i < b.N; i++ {
-		con.Write([]byte("hello"))
-		{
-			con.Read()
-		}
-	}
-}
-
-func TestChannel(t *testing.T) {
-	var b = make(chan int, 10)
-	b <- 1
-	close(b)
-	// 这里会出错
-	b <- 2
 }
