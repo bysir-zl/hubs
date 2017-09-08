@@ -9,6 +9,7 @@ import (
 type Kcp struct {
 	listener *kcp.Listener
 	isClose  bool
+	protoCoder conn_wrap.ProtoCoder
 }
 
 func (p *Kcp) Accept() (c *conn_wrap.Conn, err error) {
@@ -19,7 +20,7 @@ func (p *Kcp) Accept() (c *conn_wrap.Conn, err error) {
 		}
 		return
 	}
-	c = conn_wrap.FromKcpConn(kcpConn)
+	c = conn_wrap.FromKcpConn(kcpConn,p.protoCoder)
 	return
 }
 
@@ -40,5 +41,6 @@ func (p *Kcp) Fd() (pd uintptr, err error) {
 
 func NewKcp() *Kcp {
 	return &Kcp{
+		protoCoder: conn_wrap.NewLenProtoCoder(),
 	}
 }

@@ -21,8 +21,8 @@ func (p *Kcp) Close() (err error) {
 	return p.conn.Close()
 }
 
-func FromKcpConn(conn *kcp.UDPSession) *Conn {
-	p := FromReadWriteCloser(&Kcp{conn: conn, protoCoder: NewLenProtoCoder()})
+func FromKcpConn(conn *kcp.UDPSession,protoCoder ProtoCoder) *Conn {
+	p := FromReadWriteCloser(&Kcp{conn: conn, protoCoder: protoCoder})
 	p.monitor()
 	return p
 }

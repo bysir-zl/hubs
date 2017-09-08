@@ -72,6 +72,16 @@ func (p *Conn) Write(bs []byte) (err error) {
 	return
 }
 
+func (p *Conn) WriteSync(bs []byte) (err error) {
+	if atomic.LoadInt32(&p.closed) > 0 {
+		err = p.closeReason
+		return
+	}
+
+	return p.conn.WriteFrame(bs)
+}
+
+// 关闭连接, Write和Read的阻塞将会打破 并返回错误
 func (p *Conn) Close(reason error) (err error) {
 	if atomic.AddInt32(&p.closed, 1) > 1 {
 		err = errors.New("closed")
