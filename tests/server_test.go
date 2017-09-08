@@ -14,7 +14,9 @@ import (
 type Handler struct {
 }
 
-func (p *Handler) Server(s *hubs.Server, con conn_wrap.Interface) {
+func (p *Handler) Server(s *hubs.Server, con *conn_wrap.Conn) {
+	con.CheckPing(15 * time.Second)
+
 	log.Print("conn")
 
 	s.Subscribe(con, "room1")
@@ -28,14 +30,10 @@ func (p *Handler) Server(s *hubs.Server, con conn_wrap.Interface) {
 		}
 	}()
 
-	go func() {
-		for range time.Tick(1 * time.Second) {
-			con.Write([]byte("pong"))
-		}
-	}()
 	for {
 		bs, err := con.Read()
 		if err != nil {
+			log.Print("read err: ", err)
 			break
 		}
 		authed = true
@@ -79,7 +77,7 @@ func TestTcpClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	log.Print("conned")
-	con := conn_wrap.FromTcpConn(c)
+	con := conn_wrap.FromTcpConn(c, conn_wrap.NewLenProtoCoder())
 
 	con.Write([]byte("hello"))
 	log.Print("Write")
@@ -104,26 +102,26 @@ func TestKcpServer(t *testing.T) {
 }
 
 func TestKcpClient(t *testing.T) {
-	c, err := kcp.DialWithOptions(":9900", nil, 10, 3)
+	c, err := kcp.DialWithOptions(":9900", nil, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	con := conn_wrap.FromKcpConn(c)
 	con.StartPing(10 * time.Second)
+	con.CheckPong(15 * time.Second)
 
 	con.Write([]byte("hello"))
 
 	for {
 		bs, err := con.Read()
-
 		if err != nil {
 			log.Print("err ", err)
 			return
 		}
-		con.Close()
 		log.Print("read: ", string(bs))
 	}
 
+	time.Sleep(time.Second)
 }
 
 func TestClient(t *testing.T) {
@@ -133,7 +131,7 @@ func TestClient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con := conn_wrap.FromTcpConn(c)
+	con := conn_wrap.FromTcpConn(c, conn_wrap.NewLenProtoCoder())
 
 	con.Write([]byte("hello"))
 
@@ -154,7 +152,7 @@ func BenchmarkGg(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	con := conn_wrap.FromTcpConn(c)
+	con := conn_wrap.FromTcpConn(c, conn_wrap.NewLenProtoCoder())
 	for i := 0; i < b.N; i++ {
 		con.Write([]byte("hello"))
 		{

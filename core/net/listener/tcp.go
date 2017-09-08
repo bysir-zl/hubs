@@ -8,11 +8,12 @@ import (
 )
 
 type Tcp struct {
-	listener *net.TCPListener
-	isClose  bool
+	listener   *net.TCPListener
+	isClose    bool
+	protoCoder conn_wrap.ProtoCoder
 }
 
-func (p *Tcp) Accept() (c conn_wrap.Interface, err error) {
+func (p *Tcp) Accept() (c *conn_wrap.Conn, err error) {
 	tcpConn, err := p.listener.AcceptTCP()
 	if err != nil {
 		if p.isClose {
@@ -20,7 +21,7 @@ func (p *Tcp) Accept() (c conn_wrap.Interface, err error) {
 		}
 		return
 	}
-	c = conn_wrap.FromTcpConn(tcpConn)
+	c = conn_wrap.FromTcpConn(tcpConn, p.protoCoder)
 	return
 }
 
@@ -48,5 +49,6 @@ func (p *Tcp) Fd() (pd uintptr, err error) {
 
 func NewTcp() *Tcp {
 	return &Tcp{
+		protoCoder: conn_wrap.NewLenProtoCoder(),
 	}
 }

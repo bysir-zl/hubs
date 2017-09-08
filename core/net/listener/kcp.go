@@ -11,7 +11,7 @@ type Kcp struct {
 	isClose  bool
 }
 
-func (p *Kcp) Accept() (c conn_wrap.Interface, err error) {
+func (p *Kcp) Accept() (c *conn_wrap.Conn, err error) {
 	kcpConn, err := p.listener.AcceptKCP()
 	if err != nil {
 		if p.isClose {
@@ -24,7 +24,7 @@ func (p *Kcp) Accept() (c conn_wrap.Interface, err error) {
 }
 
 func (p *Kcp) Listen(addr string, isFormFd bool) (err error) {
-	p.listener, err = kcp.ListenWithOptions(addr,nil,10,3)
+	p.listener, err = kcp.ListenWithOptions(addr,nil,0,0)
 	return
 }
 

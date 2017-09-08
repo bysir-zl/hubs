@@ -22,7 +22,7 @@ const (
 	writeBufferSize = 1024
 )
 
-func (p *Ws) Accept() (c conn_wrap.Interface, err error) {
+func (p *Ws) Accept() (c *conn_wrap.Conn, err error) {
 	select {
 	case tcpConn := <-p.acceptChan:
 		c = conn_wrap.FromWsConn(tcpConn)

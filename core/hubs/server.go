@@ -9,7 +9,7 @@ import (
 )
 
 type ConnHandler interface {
-	Server(*Server, conn_wrap.Interface)
+	Server(*Server, *conn_wrap.Conn)
 }
 
 type Server struct {

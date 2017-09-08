@@ -6,21 +6,21 @@ import (
 )
 
 type Manager struct {
-	m map[string]map[conn_wrap.Interface]struct{}
+	m map[string]map[*conn_wrap.Conn]struct{}
 	sync.RWMutex
 }
 
-func (p *Manager) Subscribe(conn conn_wrap.Interface, topic string) {
+func (p *Manager) Subscribe(conn *conn_wrap.Conn, topic string) {
 	p.Lock()
 	if _, ok := p.m[topic]; ok {
 		p.m[topic][conn] = struct{}{}
 	} else {
-		p.m[topic] = map[conn_wrap.Interface]struct{}{conn: {}}
+		p.m[topic] = map[*conn_wrap.Conn]struct{}{conn: {}}
 	}
 	p.Unlock()
 }
 
-func (p *Manager) UnSubscribe(conn conn_wrap.Interface, topic string) {
+func (p *Manager) UnSubscribe(conn *conn_wrap.Conn, topic string) {
 	p.Lock()
 	if _, ok := p.m[topic]; ok {
 		delete(p.m[topic], conn)
@@ -28,10 +28,10 @@ func (p *Manager) UnSubscribe(conn conn_wrap.Interface, topic string) {
 	p.Unlock()
 }
 
-func (p *Manager) ConnByTopic(topic string) (cs []conn_wrap.Interface) {
+func (p *Manager) ConnByTopic(topic string) (cs []*conn_wrap.Conn) {
 	p.RLock()
 	if ccs, ok := p.m[topic]; ok {
-		cs = make([]conn_wrap.Interface, len(ccs))
+		cs = make([]*conn_wrap.Conn, len(ccs))
 		var i int
 		for c := range ccs {
 			cs[i] = c
@@ -42,7 +42,7 @@ func (p *Manager) ConnByTopic(topic string) (cs []conn_wrap.Interface) {
 	return
 }
 
-func (p *Manager) SendToTopic(topic string, bs []byte, expects ...conn_wrap.Interface) (count int, err error) {
+func (p *Manager) SendToTopic(topic string, bs []byte, expects ...*conn_wrap.Conn) (count int, err error) {
 	cs := p.ConnByTopic(topic)
 	if cs == nil {
 		return
@@ -69,6 +69,6 @@ func (p *Manager) SendToTopic(topic string, bs []byte, expects ...conn_wrap.Inte
 
 func NewManager() *Manager {
 	return &Manager{
-		m: map[string]map[conn_wrap.Interface]struct{}{},
+		m: map[string]map[*conn_wrap.Conn]struct{}{},
 	}
 }
