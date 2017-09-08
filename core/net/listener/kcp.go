@@ -24,7 +24,7 @@ func (p *Kcp) Accept() (c *conn_wrap.Conn, err error) {
 }
 
 func (p *Kcp) Listen(addr string, isFormFd bool) (err error) {
-	p.listener, err = kcp.ListenWithOptions(addr,nil,0,0)
+	p.listener, err = kcp.ListenWithOptions(addr, nil, 0, 0)
 	return
 }
 
@@ -34,7 +34,7 @@ func (p *Kcp) Close() (err error) {
 }
 
 func (p *Kcp) Fd() (pd uintptr, err error) {
-	err = errors.New("kcp not suppored File")
+	err = errors.New("kcp not supported File")
 	return
 }
 
