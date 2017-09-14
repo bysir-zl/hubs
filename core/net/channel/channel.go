@@ -23,7 +23,7 @@ type Channel struct {
 	closeReason     error         // 关闭原因
 
 	goWrite int32
-	goRead  int32
+	goCheck int32
 
 	checkPingDuration time.Duration // 如果没收到一段时间没收到ping 则关闭连接,为0则不检查
 	checkPongDuration time.Duration // 如果没收到一段时间没收到pong 则关闭连接,为0则不检查
@@ -63,9 +63,23 @@ func (p *Channel) Read() (bs []byte, err error) {
 		return
 	}
 
-	bs, ok := <-p.rc
-	if !ok {
-		err = p.closeReason
+	for {
+		bs, err = p.conn.ReadFrame()
+		if err != nil {
+			// 有错误就直接关闭
+			p.Close(err)
+			return
+		}
+		if bytes.Compare(bs, Ping) == 0 {
+			p.lastPingAt = time.Now()
+			// 回应一个pong
+			p.Write(Pong)
+			continue
+		} else if bytes.Compare(bs, Pong) == 0 {
+			p.lastPongAt = time.Now()
+			continue
+		}
+
 		return
 	}
 
@@ -80,7 +94,7 @@ func (p *Channel) Write(bs []byte) (err error) {
 	}
 
 	// 有写的才开启协程
-	if atomic.LoadInt32(&p.goWrite) == 0 {
+	if atomic.CompareAndSwapInt32(&p.goWrite, 0, 1) {
 		util.GoPool.Schedule(p.writer)
 	}
 
@@ -105,13 +119,13 @@ func (p *Channel) WriteSync(bs []byte) (err error) {
 
 // 关闭连接, Write和Read的阻塞将会打破 并返回错误
 func (p *Channel) Close(reason error) (err error) {
-	if atomic.AddInt32(&p.closed, 1) > 1 {
+	if atomic.CompareAndSwapInt32(&p.closed, 0, 1) {
 		err = errors.New("closed")
 		return
 	}
-	log.InfoT("test", "close", reason)
-	// 如果这里关闭了写通道, 在上面Write方法内如果阻塞了(p.wc满了), 就会发生 send to closed chan 的panic
+
 	close(p.dieC)
+	// 如果这里关闭了写通道, 就会发生 send to closed chan 的panic
 	//close(p.wc)
 	//close(p.rc)
 
@@ -141,6 +155,9 @@ func (p *Channel) StartPing(duration time.Duration) {
 // 检测客户端一定时间有无ping, 若没有就关闭连接, duration为0则不检查
 // 用于服务端
 func (p *Channel) CheckPing(duration time.Duration) {
+	if atomic.CompareAndSwapInt32(&p.goCheck, 0, 1) {
+		util.GoPool.Schedule(p.checker)
+	}
 	p.checkPingDuration = duration
 	return
 }
@@ -148,57 +165,33 @@ func (p *Channel) CheckPing(duration time.Duration) {
 // 检测服务器一定时间有无pong, 若没有就关闭连接, duration为0则不检查
 // 用于客户端
 func (p *Channel) CheckPong(duration time.Duration) {
+	if atomic.CompareAndSwapInt32(&p.goCheck, 0, 1) {
+		util.GoPool.Schedule(p.checker)
+	}
 	p.checkPongDuration = duration
 	return
 }
 
-func (p *Channel) reader() {
+// 检测ping
+func (p *Channel) checker() {
 	defer func() {
-		log.InfoT("test", "reader go closed")
+		log.InfoT("test", "checker go closed")
 	}()
 
-	temp := make(chan []byte)
-	// 开启读协程
-	util.GoPool.Schedule(func() {
-		for {
-			bs, err := p.conn.ReadFrame()
-			if err != nil {
-				// 有错误就直接关闭
-				p.Close(err)
-				return
-			}
-			select {
-			case <-p.dieC:
-			case temp <- bs:
-			}
-		}
-	})
-
-	// 检测ping
 	p.lastPingAt = time.Now()
 	p.lastPongAt = time.Now()
+	// 检测ping
 	timer := time.After(1 * time.Second)
 	for {
 		select {
 		case <-p.dieC:
 			return
-		case bs := <-temp:
-			if bytes.Compare(bs, Ping) == 0 {
-				p.lastPingAt = time.Now()
-				// 回应一个pong
-				p.Write(Pong)
-			} else if bytes.Compare(bs, Pong) == 0 {
-				p.lastPongAt = time.Now()
-			} else {
-				select {
-				case <-p.dieC:
-				case p.rc <- bs:
-				case <-time.After(1 * time.Second):
-				}
-			}
-			timer = time.After(1 * time.Second)
-
 		case <-timer:
+			if p.checkPingDuration == 0 && p.checkPongDuration == 0 {
+				atomic.StoreInt32(&p.goCheck, 0)
+				return
+			}
+
 			if p.checkPingDuration != 0 && time.Now().Sub(p.lastPingAt) > p.checkPingDuration {
 				// 超时没收到ping就关闭
 				p.Close(Err_CloseByPing)
@@ -209,6 +202,7 @@ func (p *Channel) reader() {
 				p.Close(Err_CloseByPong)
 				return
 			}
+			timer = time.After(1 * time.Second)
 		}
 	}
 
@@ -216,8 +210,6 @@ func (p *Channel) reader() {
 
 // 写协程
 func (p *Channel) writer() {
-	atomic.StoreInt32(&p.goWrite, 1)
-
 	// 一秒之内关闭这个协程
 	timer := time.After(1 * time.Second)
 	for {
@@ -241,20 +233,20 @@ func (p *Channel) writer() {
 	}
 }
 
+// 启动
 func (p *Channel) monitor() {
-	p.reader()
 }
 
 // 从连接得到有个新管道, 如果没有可用的协程服务连接则会阻塞
 func FromReadWriteCloser(conn ReadWriteCloser) *Channel {
 	c := &Channel{
-		rc:              make(chan []byte, BufSize),
+		rc:              make(chan []byte),
 		wc:              make(chan []byte, BufSize),
 		data:            make(map[string]interface{}),
 		subscribeTopics: make(map[string]struct{}),
 		dieC:            make(chan struct{}),
 		conn:            conn,
 	}
-	util.GoPool.Schedule(c.monitor)
+	c.monitor()
 	return c
 }

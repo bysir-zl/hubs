@@ -4,7 +4,6 @@ package channel
 import (
 	"io"
 	"encoding/binary"
-	"log"
 )
 
 type ProtoCol interface {
@@ -25,7 +24,6 @@ func (p *LenProtoCol) Read(reader io.Reader) ([]byte, error) {
 		return nil, err
 	}
 
-	log.Print("----read----", bodyLen32)
 	bs := make([]byte, bodyLen32)
 	_, err = io.ReadFull(reader, bs)
 	if err != nil {
@@ -37,14 +35,14 @@ func (p *LenProtoCol) Read(reader io.Reader) ([]byte, error) {
 
 func (p *LenProtoCol) Write(writer io.Writer, data []byte) (int, error) {
 	bodyLen32 := uint32(len(data))
-	
+
 	err := binary.Write(writer, binary.LittleEndian, &bodyLen32)
 	if err != nil {
 		return 0, err
 	}
 
-	log.Print("----write----", bodyLen32, " ", len(data))
-	return writer.Write(data)
+	i, e := writer.Write(data)
+	return i, e
 }
 
 func NewLenProtoCol() ProtoCol {
