@@ -1,12 +1,10 @@
 package listener
 
-import (
-	"github.com/bysir-zl/hubs/core/net/conn_wrap"
-)
+import "github.com/bysir-zl/hubs/core/net/channel"
 
 type Interface interface {
-	Accept() (conn *conn_wrap.Conn, err error)
-	Listen(addr string,isFormFd bool) (err error)
+	Accept() (conn *channel.Channel, err error)
+	Listen(addr string, isFormFd bool) (err error)
 	Close() (err error)
 	Fd() (fd uintptr, err error)
 }

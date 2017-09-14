@@ -2,14 +2,14 @@ package hubs
 
 import (
 	"github.com/bysir-zl/hubs/core/net/listener"
-	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 	"sync"
 	"os"
 	"github.com/bysir-zl/hubs/core/util"
+	"github.com/bysir-zl/hubs/core/net/channel"
 )
 
 type ConnHandler interface {
-	Server(*Server, *conn_wrap.Conn)
+	Server(*Server, *channel.Channel)
 }
 
 type Server struct {

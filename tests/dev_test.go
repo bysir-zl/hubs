@@ -14,22 +14,26 @@ func TestBinary(t *testing.T) {
 	bf:=bytes.NewBuffer(bs)
 	
 	go func() {
-		var l uint8 = 4
+		data:=[]byte("h41562435612h")
+		var l uint32 = uint32(len(data))
 		binary.Write(bf,binary.LittleEndian,&l)
 		
-		bf.Write([]byte("hh"))
+		bf.Write(data)
+		
+		log.Print("writed: ",bf.Bytes())
 	}()
 	
 	go func() {
-		var ll uint8
+		var ll uint32
 		binary.Read(bf,binary.LittleEndian,&ll)
 
 		log.Print(ll,bf.Bytes())
 
-		x:=make([]byte,2)
+		x:=make([]byte,ll)
 		i,err:=io.ReadFull(bf,x)
 		log.Print(i,err,string(x))
 
+		log.Print("readed: ",bf.Bytes())
 
 	}()
 		

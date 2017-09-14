@@ -4,16 +4,16 @@ import (
 	"net"
 	"strings"
 	"strconv"
-	"github.com/bysir-zl/hubs/core/net/conn_wrap"
+	"github.com/bysir-zl/hubs/core/net/channel"
 )
 
 type Tcp struct {
 	listener   *net.TCPListener
 	isClose    bool
-	protoCoder conn_wrap.ProtoCoder
+	protoCoder channel.ProtoCol
 }
 
-func (p *Tcp) Accept() (c *conn_wrap.Conn, err error) {
+func (p *Tcp) Accept() (c *channel.Channel, err error) {
 	tcpConn, err := p.listener.AcceptTCP()
 	if err != nil {
 		if p.isClose {
@@ -21,7 +21,7 @@ func (p *Tcp) Accept() (c *conn_wrap.Conn, err error) {
 		}
 		return
 	}
-	c = conn_wrap.FromTcpConn(tcpConn, p.protoCoder)
+	c = channel.FromTcpConn(tcpConn, p.protoCoder)
 	return
 }
 
@@ -49,6 +49,6 @@ func (p *Tcp) Fd() (pd uintptr, err error) {
 
 func NewTcp() *Tcp {
 	return &Tcp{
-		protoCoder: conn_wrap.NewLenProtoCoder(),
+		protoCoder: channel.NewLenProtoCol(),
 	}
 }

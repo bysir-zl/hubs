@@ -1,18 +1,18 @@
 package listener
 
 import (
-	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 	"github.com/xtaci/kcp-go"
 	"errors"
+	"github.com/bysir-zl/hubs/core/net/channel"
 )
 
 type Kcp struct {
-	listener *kcp.Listener
-	isClose  bool
-	protoCoder conn_wrap.ProtoCoder
+	listener   *kcp.Listener
+	isClose    bool
+	protoCoder channel.ProtoCol
 }
 
-func (p *Kcp) Accept() (c *conn_wrap.Conn, err error) {
+func (p *Kcp) Accept() (c *channel.Channel, err error) {
 	kcpConn, err := p.listener.AcceptKCP()
 	if err != nil {
 		if p.isClose {
@@ -20,7 +20,7 @@ func (p *Kcp) Accept() (c *conn_wrap.Conn, err error) {
 		}
 		return
 	}
-	c = conn_wrap.FromKcpConn(kcpConn,p.protoCoder)
+	c = channel.FromKcpConn(kcpConn, p.protoCoder)
 	return
 }
 
@@ -41,6 +41,6 @@ func (p *Kcp) Fd() (pd uintptr, err error) {
 
 func NewKcp() *Kcp {
 	return &Kcp{
-		protoCoder: conn_wrap.NewLenProtoCoder(),
+		protoCoder: channel.NewLenProtoCol(),
 	}
 }

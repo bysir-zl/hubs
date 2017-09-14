@@ -15,7 +15,7 @@ func listen(addr string) (err error) {
 	tcpP := func() listener.Interface {
 		return listener.NewWs()
 	}
-	handle := func(con conn_wrap.Interface) {
+	handle := func(con channel.Interface) {
 		log.Print("conn")
 		rc, _ := con.Reader()
 		defer con.Close()
@@ -58,7 +58,7 @@ func listen(addr string) (err error) {
 	return
 }
 
-func handleRequest(conn conn_wrap.Interface, request Request) {
+func handleRequest(conn channel.Interface, request Request) {
 	id := 0
 	idI, ok := conn.Value("id")
 	if ok {
@@ -107,7 +107,7 @@ func handleRequest(conn conn_wrap.Interface, request Request) {
 	}
 }
 
-func writeConn(conn conn_wrap.Interface, response Response) {
+func writeConn(conn channel.Interface, response Response) {
 	bs, _ := json.Marshal(response)
 	if wc, ok := conn.Writer(); ok {
 		wc <- bs

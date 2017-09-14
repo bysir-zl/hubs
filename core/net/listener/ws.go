@@ -1,13 +1,13 @@
 package listener
 
 import (
-	"github.com/bysir-zl/hubs/core/net/conn_wrap"
 	"net/http"
 	"github.com/gorilla/websocket"
 	"net"
 	"errors"
 	"os"
 	"github.com/bysir-zl/hubs/core/util"
+	"github.com/bysir-zl/hubs/core/net/channel"
 )
 
 type Ws struct {
@@ -22,10 +22,10 @@ const (
 	writeBufferSize = 1024
 )
 
-func (p *Ws) Accept() (c *conn_wrap.Conn, err error) {
+func (p *Ws) Accept() (c *channel.Channel, err error) {
 	select {
 	case tcpConn := <-p.acceptChan:
-		c = conn_wrap.FromWsConn(tcpConn)
+		c = channel.FromWsConn(tcpConn)
 		return
 	case <-p.closeC:
 		err = Err_Stoped

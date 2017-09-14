@@ -18,7 +18,7 @@ func TestClient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	con := conn_wrap.FromTcpConn(context.Background(), c)
+	con := channel.FromTcpConn(context.Background(), c)
 
 	auth := server.Request{
 		Cmd: server.CQ_Auth,

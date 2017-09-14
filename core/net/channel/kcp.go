@@ -1,4 +1,4 @@
-package conn_wrap
+package channel
 
 import (
 	"github.com/xtaci/kcp-go"
@@ -6,7 +6,7 @@ import (
 
 type Kcp struct {
 	conn       *kcp.UDPSession
-	protoCoder ProtoCoder
+	protoCoder ProtoCol
 }
 
 func (p *Kcp) ReadFrame() (bs []byte, err error) {
@@ -21,8 +21,7 @@ func (p *Kcp) Close() (err error) {
 	return p.conn.Close()
 }
 
-func FromKcpConn(conn *kcp.UDPSession,protoCoder ProtoCoder) *Conn {
+func FromKcpConn(conn *kcp.UDPSession,protoCoder ProtoCol) *Channel {
 	p := FromReadWriteCloser(&Kcp{conn: conn, protoCoder: protoCoder})
-	p.monitor()
 	return p
 }

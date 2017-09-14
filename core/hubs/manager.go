@@ -2,25 +2,25 @@ package hubs
 
 import (
 	"sync"
-	"github.com/bysir-zl/hubs/core/net/conn_wrap"
+	"github.com/bysir-zl/hubs/core/net/channel"
 )
 
 type Manager struct {
-	m map[string]map[*conn_wrap.Conn]struct{}
+	m map[string]map[*channel.Channel]struct{}
 	sync.RWMutex
 }
 
-func (p *Manager) Subscribe(conn *conn_wrap.Conn, topic string) {
+func (p *Manager) Subscribe(conn *channel.Channel, topic string) {
 	p.Lock()
 	if _, ok := p.m[topic]; ok {
 		p.m[topic][conn] = struct{}{}
 	} else {
-		p.m[topic] = map[*conn_wrap.Conn]struct{}{conn: {}}
+		p.m[topic] = map[*channel.Channel]struct{}{conn: {}}
 	}
 	p.Unlock()
 }
 
-func (p *Manager) UnSubscribe(conn *conn_wrap.Conn, topic string) {
+func (p *Manager) UnSubscribe(conn *channel.Channel, topic string) {
 	p.Lock()
 	if _, ok := p.m[topic]; ok {
 		delete(p.m[topic], conn)
@@ -28,10 +28,10 @@ func (p *Manager) UnSubscribe(conn *conn_wrap.Conn, topic string) {
 	p.Unlock()
 }
 
-func (p *Manager) ConnByTopic(topic string) (cs []*conn_wrap.Conn) {
+func (p *Manager) ConnByTopic(topic string) (cs []*channel.Channel) {
 	p.RLock()
 	if ccs, ok := p.m[topic]; ok {
-		cs = make([]*conn_wrap.Conn, len(ccs))
+		cs = make([]*channel.Channel, len(ccs))
 		var i int
 		for c := range ccs {
 			cs[i] = c
@@ -42,7 +42,7 @@ func (p *Manager) ConnByTopic(topic string) (cs []*conn_wrap.Conn) {
 	return
 }
 
-func (p *Manager) SendToTopic(topic string, bs []byte, expects ...*conn_wrap.Conn) (count int, err error) {
+func (p *Manager) SendToTopic(topic string, bs []byte, expects ...*channel.Channel) (count int, err error) {
 	cs := p.ConnByTopic(topic)
 	if cs == nil {
 		return
@@ -69,6 +69,6 @@ func (p *Manager) SendToTopic(topic string, bs []byte, expects ...*conn_wrap.Con
 
 func NewManager() *Manager {
 	return &Manager{
-		m: map[string]map[*conn_wrap.Conn]struct{}{},
+		m: map[string]map[*channel.Channel]struct{}{},
 	}
 }

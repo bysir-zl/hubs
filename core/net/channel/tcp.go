@@ -1,4 +1,4 @@
-package conn_wrap
+package channel
 
 import (
 	"net"
@@ -6,7 +6,7 @@ import (
 
 type Tcp struct {
 	conn       *net.TCPConn
-	protoCoder ProtoCoder
+	protoCoder ProtoCol
 }
 
 func (p *Tcp) ReadFrame() (bs []byte, err error) {
@@ -22,9 +22,8 @@ func (p *Tcp) Close() (err error) {
 	return p.conn.Close()
 }
 
-func FromTcpConn(conn *net.TCPConn,protoCoder ProtoCoder) *Conn {
+func FromTcpConn(conn *net.TCPConn,protoCoder ProtoCol) *Channel {
 	p := FromReadWriteCloser(&Tcp{conn: conn, protoCoder: protoCoder})
-	p.monitor()
 
 	return p
 }

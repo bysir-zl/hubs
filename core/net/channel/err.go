@@ -1,4 +1,4 @@
-package conn_wrap
+package channel
 
 import "errors"
 

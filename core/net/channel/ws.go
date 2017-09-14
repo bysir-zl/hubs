@@ -1,4 +1,4 @@
-package conn_wrap
+package channel
 
 import (
 	"github.com/gorilla/websocket"
@@ -28,7 +28,7 @@ read:
 	return
 }
 
-func (p *Ws) WriteFrame(bs []byte) ( err error) {
+func (p *Ws) WriteFrame(bs []byte) (err error) {
 	err = p.conn.WriteMessage(websocket.TextMessage, bs)
 	return
 }
@@ -37,8 +37,7 @@ func (p *Ws) Close() error {
 	return p.conn.Close()
 }
 
-func FromWsConn(conn *websocket.Conn) *Conn {
+func FromWsConn(conn *websocket.Conn) *Channel {
 	p := FromReadWriteCloser(&Ws{conn: conn})
-	p.monitor()
 	return p
 }
