@@ -39,7 +39,7 @@ func (p *Handler) Server(s *hubs.Server, con *channel.Channel) {
 		}
 		authed = true
 		log.Print(string(bs))
-		con.Write([]byte("SB "+string(bs)))
+		con.Write([]byte("SB " + string(bs)))
 	}
 
 	log.Print("close")
@@ -103,21 +103,18 @@ func TestTcpFor(t *testing.T) {
 		log.Print(err)
 	}
 	con := channel.FromTcpConn(c, channel.NewLenProtoCol())
-	con.CheckPong(5*time.Second)
+	con.CheckPong(5 * time.Second)
 	for i := 0; i < 200; i++ {
 		//con.StartPing(10 * time.Second)
 		//con.CheckPong(15 * time.Second)
 
 		con.Write([]byte("hello " + strconv.Itoa(i)))
 
+		r, _ := con.Read()
+		log.Print(string(r))
 
-			r,_:=con.Read()
-			log.Print(string(r))
-		
 	}
-	select {
-	
-	}
+	select {}
 }
 
 func TestKcpServer(t *testing.T) {
@@ -152,18 +149,23 @@ func TestKcpClient(t *testing.T) {
 }
 
 func TestKcpFor(t *testing.T) {
-	c, err := kcp.DialWithOptions(":9900", nil, 10, 3)
+	c, err := kcp.DialWithOptions(":9900", nil, 0, 0)
 	if err != nil {
 		log.Print(err)
 	}
 	con := channel.FromKcpConn(c, channel.NewLenProtoCol())
-	for i := 0; i < 2; i++ {
+
+	for i := 0; i < 4; i++ {
 		//con.StartPing(10 * time.Second)
 		//con.CheckPong(15 * time.Second)
-		go func(i int) {
+		con.Write([]byte("hello" + strconv.Itoa(i)))
+		con.Write([]byte("hello" + strconv.Itoa(i)))
 
-			con.Write([]byte("hello" + strconv.Itoa(i)))
+		go func(i int) {
+			log.Print("read")
 			r, _ := con.Read()
+			log.Print("readed")
+
 			log.Print(string(r))
 		}(i)
 	}
