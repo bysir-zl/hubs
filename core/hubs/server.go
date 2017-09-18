@@ -40,10 +40,10 @@ func (s *Server) Run() (err error) {
 			break
 		}
 		s.wg.Add(1)
-		go func() {
+		util.GoPool.Schedule(func() {
 			s.handler.Server(s, c)
 			s.wg.Done()
-		}()
+		})
 	}
 
 	// 如果accept错误,则listener已关闭, 等到已经连接的连接关闭
