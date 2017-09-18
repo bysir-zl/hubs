@@ -25,7 +25,7 @@ func (p *Kcp) Accept() (c *channel.Channel, err error) {
 }
 
 func (p *Kcp) Listen(addr string, isFormFd bool) (err error) {
-	p.listener, err = kcp.ListenWithOptions(addr, nil, 10, 3)
+	p.listener, err = kcp.ListenWithOptions(addr, nil, 0, 0)
 	return
 }
 
